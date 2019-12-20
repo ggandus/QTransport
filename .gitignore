@@ -1,5 +1,5 @@
 *.a
-**/*.a
-**/*.o
-**/*.includecache
-**/*.so
+**/**/*.a
+**/**/*.o
+**/**/*.includecache
+**/**/*.so
