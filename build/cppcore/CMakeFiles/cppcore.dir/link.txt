@@ -1,0 +1,2 @@
+/usr/bin/ar qc libcppcore.a  CMakeFiles/cppcore.dir/src/greenfunction.cpp.o CMakeFiles/cppcore.dir/src/leadselfenergy.cpp.o CMakeFiles/cppcore.dir/src/selfenergy.cpp.o
+/usr/bin/ranlib libcppcore.a

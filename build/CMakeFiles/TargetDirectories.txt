@@ -1,0 +1,10 @@
+/home/ggandus/transport/build/CMakeFiles/rebuild_cache.dir
+/home/ggandus/transport/build/CMakeFiles/edit_cache.dir
+/home/ggandus/transport/build/cppcore/CMakeFiles/rebuild_cache.dir
+/home/ggandus/transport/build/cppcore/CMakeFiles/cppcore.dir
+/home/ggandus/transport/build/cppcore/CMakeFiles/edit_cache.dir
+/home/ggandus/transport/build/cppmodule/CMakeFiles/rebuild_cache.dir
+/home/ggandus/transport/build/cppmodule/CMakeFiles/_cppmodule.dir
+/home/ggandus/transport/build/cppmodule/CMakeFiles/edit_cache.dir
+/home/ggandus/transport/build/cppmodule/pybind11/CMakeFiles/rebuild_cache.dir
+/home/ggandus/transport/build/cppmodule/pybind11/CMakeFiles/edit_cache.dir

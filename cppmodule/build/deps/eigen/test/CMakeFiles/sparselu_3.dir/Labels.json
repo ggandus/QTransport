@@ -1,0 +1,16 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/ggandus/tbnegf/tbnegf/transport/cppbind/deps/eigen/test/sparselu.cpp"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"BuildOfficial"
+		],
+		"name" : "sparselu_3"
+	}
+}

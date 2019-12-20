@@ -1,0 +1,16 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/ggandus/tbnegf/tbnegf/transport/cppbind/deps/eigen/test/geo_quaternion.cpp"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"BuildOfficial"
+		],
+		"name" : "geo_quaternion_3"
+	}
+}

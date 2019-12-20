@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC  -lm -lpthread -lgomp -shared  -o ../../_cppmodule.cpython-37m-x86_64-linux-gnu.so CMakeFiles/_cppmodule.dir/src/green.cpp.o CMakeFiles/_cppmodule.dir/src/leadself.cpp.o CMakeFiles/_cppmodule.dir/src/main.cpp.o CMakeFiles/_cppmodule.dir/src/self.cpp.o -flto ../cppcore/libcppcore.a 

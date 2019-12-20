@@ -1,0 +1,44 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../include/globals.h
+Eigen/Dense
+-
+
+../include/greenfunction.h
+globals.h
+../include/globals.h
+iostream
+-
+
+../include/leadselfenergy.h
+selfenergy.h
+../include/selfenergy.h
+
+../include/selfenergy.h
+greenfunction.h
+../include/greenfunction.h
+
+/home/ggandus/tbnegf/tbnegf/transport/cppcore/src/greenfunction.cpp
+greenfunction.h
+/home/ggandus/tbnegf/tbnegf/transport/cppcore/src/greenfunction.h
+
+/home/ggandus/tbnegf/tbnegf/transport/cppcore/src/leadselfenergy.cpp
+leadselfenergy.h
+/home/ggandus/tbnegf/tbnegf/transport/cppcore/src/leadselfenergy.h
+
+/home/ggandus/tbnegf/tbnegf/transport/cppcore/src/main.cpp
+iostream
+-
+leadselfenergy.h
+/home/ggandus/tbnegf/tbnegf/transport/cppcore/src/leadselfenergy.h
+
+/home/ggandus/tbnegf/tbnegf/transport/cppcore/src/selfenergy.cpp
+selfenergy.h
+/home/ggandus/tbnegf/tbnegf/transport/cppcore/src/selfenergy.h
+

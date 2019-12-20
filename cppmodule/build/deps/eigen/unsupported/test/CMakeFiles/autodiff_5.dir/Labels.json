@@ -1,0 +1,16 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/ggandus/tbnegf/tbnegf/transport/cppbind/deps/eigen/unsupported/test/autodiff.cpp"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"BuildUnsupported"
+		],
+		"name" : "autodiff_5"
+	}
+}

@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC  -lm -lpthread -lgomp -shared  -o greens.cpython-37m-x86_64-linux-gnu.so CMakeFiles/greens.dir/src/greens.cpp.o -flto 
