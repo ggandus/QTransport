@@ -23,15 +23,15 @@ s_ij = np.zeros((i,i),dtype=dtype,order='F')
 
 
 #lse = _cpp.LeadSelfEnergy(h_ii,s_ii,h_ij,s_ij,h_im,s_im,eta)
-pylse = LeadSelfEnergy((h_ii,s_ii),(h_ij,s_ij),(h_im,s_im),eta=eta)
-aselse = aseLSE((h_ii,s_ii),(h_ij,s_ij),(h_im,s_im),eta=eta)
+c_but_with_python_wrapper = LeadSelfEnergy((h_ii,s_ii),(h_ij,s_ij),(h_im,s_im),eta=eta) #c++ with py-wrapper
+pure_python = aseLSE((h_ii,s_ii),(h_ij,s_ij),(h_im,s_im),eta=eta) #pure python
 
 start = timer()
-aseres = aselse.retarded(1.)
+pure_python_result = pure_python.retarded(1.)
 end = timer()
 print('ase: ',end - start) # Time in seconds, e.g. 5.38091952400282
 start = timer()
-myres = pylse.retarded(1.)
+python_wrapped_c_result = c_but_with_python_wrapper.retarded(1.)
 end = timer()
 print('my: ',end - start) # Time in seconds, e.g. 5.38091952400282
-assert np.allclose(aseres,myres)
+assert np.allclose(pure_python_result,python_wrapped_c_result)

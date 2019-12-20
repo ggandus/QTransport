@@ -1,5 +1,4 @@
 #include "leadselfenergy.h"
-
 namespace negf {
 
   LeadSelfEnergy::LeadSelfEnergy (const matrix& h_ii, const matrix& s_ii,
@@ -19,7 +18,6 @@ namespace negf {
 
   void LeadSelfEnergy::update ()
   {
-
     // SelfEnergy::update();
     z = energy + eta * 1i;
     Ginv = z * S.adjoint() - H.adjoint();
