@@ -1,4 +1,5 @@
 #include "leadselfenergy.h"
+#include <iostream>
 namespace negf {
 
   LeadSelfEnergy::LeadSelfEnergy (const matrix& h_ii, const matrix& s_ii,
@@ -7,9 +8,9 @@ namespace negf {
                                   real eta_)
     : SelfEnergy(h_ii, s_ii, h_im, s_im, eta_), h_ij(h_ij), s_ij(s_ij)
   {
-    auto m = h_ij.rows();
-    a.resize(m,1);
-    b.resize(m,1);
+    m = h_ij.rows();
+    a.resize(m,m);
+    b.resize(m,m);
     v_11.resize(m,m);
     v_10.resize(m,m);
     v_01.resize(m,m);
@@ -26,16 +27,33 @@ namespace negf {
     v_01 = z * s_ij.adjoint() - h_ij.adjoint();
 
     delta = conv + 1;
-    while (delta > conv) {
+    int iteration_number = 0;
 
-        a.noalias() = v_11.partialPivLu().solve(v_01);
-        b.noalias() = v_11.partialPivLu().solve(v_10);
-        v_01_dot_b.noalias() = v_01 * b;
-        Ginv -= v_01_dot_b;
-        v_11 -= v_10 * a +  v_01_dot_b;
-        v_01 = - (v_01 * a).eval();
-        v_10 = - (v_10 * b).eval();
-        delta = v_01.cwiseAbs().maxCoeff();
+    // both v_01 and a have the weird ass type:
+    // const Eigen::RotationBase<OtherDerived, -1>
+    // v_01 = 100x100 matrix, complex64
+    // a.shape = 100,1
+    // Eigen::PartialPivLU<matrix> lu_ii(m,m);
+    // Eigen::HouseholderQR<Eigen::Ref<matrix>> qr_ii(m,m);
+    // Eigen::HouseholderQR<Eigen::Ref<matrix>> lu_ii;
+
+    while ((delta > conv) && (iteration_number < 13)) {
+        iteration_number++;
+        std::cout << iteration_number << "/* iteration */" << '\n';
+        Eigen::HouseholderQR<Eigen::Ref<matrix>> lu_ii(v_11);
+        lu_ii.solve(v_10);
+        lu_ii.solve(v_01);
+        // qr_ii.compute(v_11);
+        // qr_ii.solve(v_01);
+        // qr_ii.solve(v_01);
+        // a.noalias() = qr_ii.solve(v_01); //slow
+        // b.noalias() = qr_ii.solve(v_10); //slow
+        // v_01_dot_b.noalias() = v_01 * b;
+        // Ginv -= v_01_dot_b;
+        // v_11 -= v_10 * a +  v_01_dot_b;
+        // v_01 = - (v_01 * a).eval(); // slow
+        // v_10 = - (v_10 * b).eval(); // slow
+        // delta = v_01.cwiseAbs().maxCoeff();
 
       }
 

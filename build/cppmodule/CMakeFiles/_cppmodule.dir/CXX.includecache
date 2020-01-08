@@ -14,11 +14,31 @@ Eigen/Dense
 globals.h
 ../cppcore/include/globals.h
 
+../cppcore/include/leadselfenergy.h
+selfenergy.h
+../cppcore/include/selfenergy.h
+
+../cppcore/include/selfenergy.h
+greenfunction.h
+../cppcore/include/greenfunction.h
+
 ../cppmodule/include/pygreen.h
 wrappers.h
 ../cppmodule/include/wrappers.h
 greenfunction.h
 ../cppmodule/include/greenfunction.h
+
+../cppmodule/include/pyleadself.h
+pyself.h
+../cppmodule/include/pyself.h
+leadselfenergy.h
+../cppmodule/include/leadselfenergy.h
+
+../cppmodule/include/pyself.h
+pygreen.h
+../cppmodule/include/pygreen.h
+selfenergy.h
+../cppmodule/include/selfenergy.h
 
 ../cppmodule/include/wrappers.h
 pybind11/pybind11.h
@@ -560,9 +580,9 @@ wchar.h
 
 /home/ggandus/anaconda3/include/python3.7m/weakrefobject.h
 
-/home/ggandus/transport/cppmodule/src/green.cpp
-pygreen.h
-/home/ggandus/transport/cppmodule/src/pygreen.h
+/home/ggandus/transport/cppmodule/src/leadself.cpp
+pyleadself.h
+/home/ggandus/transport/cppmodule/src/pyleadself.h
 
 /usr/local/include/eigen3/Eigen/Cholesky
 Core

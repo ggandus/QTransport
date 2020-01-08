@@ -51,10 +51,6 @@ class InternalSelfEnergy(CoupledHamiltonian):
         for selfenergy in self.selfenergies:
             self.Ginv -= selfenergy.retarded(energy)
 
-        # v_00 = z * self.s_ii - self.h_ii
-        # for selfenergy in self.selfenergies:
-        #     self.Ginv -= selfenergy.retarded(energy)
-
         if inverse:
             return self.Ginv
         else:
