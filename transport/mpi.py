@@ -20,7 +20,7 @@ def get_stride(array, comm=world):
     n = array.size
     stride = n // comm.Get_size()
     if n % comm.Get_size() != 0:
-        raise Warning('Cannot parallelize array.')
+        Warning('Cannot parallelize array.')
     return stride
 
 def get_domain(array, comm=world):

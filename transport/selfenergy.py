@@ -3,7 +3,7 @@ from functools import lru_cache
 from .internalselfenergy import InternalSelfEnergy
 from .tools import rotate_matrix, get_subspace
 from scipy import linalg as la
-from gpaw.utilities.blas import gemm
+# from gpaw.utilities.blas import gemm
 # import _cppmodule as _cpp
 
 # class LeadSelfEnergy(_cpp.LeadSelfEnergy, InternalSelfEnergy):

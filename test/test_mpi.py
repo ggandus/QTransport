@@ -8,7 +8,8 @@ rank = mpi.rank
 size = mpi.size
 root = 0
 
-# @pytest.mark.skip
+
+@pytest.mark.skip
 @pytest.mark.parametrize('dtype', ['int64','float64','complex64','complex128'])
 def test_scatter_dtype(dtype):
     # N = 4
@@ -17,7 +18,7 @@ def test_scatter_dtype(dtype):
     out = mpi.scatter(array)
     assert np.allclose(out,array[rank*stride:(rank+1)*stride])
 
-# @pytest.mark.skip
+@pytest.mark.skip
 def test_scatter_shape():
     # N = 40
     array = np.arange(N, dtype='float').reshape(4,10)
@@ -27,7 +28,7 @@ def test_scatter_shape():
     assert np.allclose(out,expected)
 
 
-# @pytest.mark.skip
+@pytest.mark.skip
 def test_gather():
     # N = 10
     array = np.arange(N*rank,N*(rank+1), dtype='float')

@@ -373,7 +373,7 @@ class TransportCalculator:
            return np.trapz((fl - fr) * T_e, x=E, axis=0)
 
     def collect_master(self, name='T_e'):
-        if name in ['T_e']:
+        if name in ['T_e','energies']:
             attr = getattr(self,name)
             setattr(self,name,mpi.gather(attr))
         else:
@@ -383,6 +383,7 @@ class TransportCalculator:
         self.initialize()
         self.update()
         self.collect_master(name='T_e')
+        self.collect_master(name='energies')
         return self.T_e
 
     def get_dos(self):
