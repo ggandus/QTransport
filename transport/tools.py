@@ -469,6 +469,30 @@ def order_diagonal(h_mm, s_mm):
     U_mm = np.eye(len(h_mm)).take(permute_list, axis=1)
     return h_mm, s_mm, U_mm
 
+def get_coupling_bfs(h_mm, index, natoms, cutoff=1e-2):
+    '''This function returns the indices of the orbitas overlapping
+    with the i-th orbital specified by index. The matrix h_mm has to
+    be subdiagonalized and ordered.'''
+    index_ao_coupling = [] # list of overlapping orbitals
+    nbf = h_mm.shape[0] // natoms # ao per atom
+    xrange = list(range(index*natoms, index*natoms+natoms))
+    for ibf in range(nbf):
+        yrange = range(ibf*natoms,ibf*natoms+natoms)
+        coupling_mat = h_mm.take(xrange, 0).take(yrange, 1).flat
+        if np.max(np.abs(coupling_mat))>cutoff: index_ao_coupling.append(ibf)
+    return index_ao_coupling
+
+def plot_ao_coupling(h_mm, natm, precision):
+    '''Plot helper for subdiagonalized and ordered matrices.'''
+    from matplotlib import pyplot as plt
+    nbf = h_mm.shape[0] // natm
+    plt.figure(figsize=(13,13))
+    plt.spy(h_mm,precision=precision)
+    plt.hlines(np.arange(0,natm*nbf,natm)-0.5,-0.5,natm*nbf-0.5,colors='r')
+    plt.vlines(np.arange(0,natm*nbf,natm)-0.5,-0.5,natm*nbf-0.5,colors='r')
+    plt.yticks(ticks=np.arange(0,natm*nbf,natm)-0.5,labels=[(i,e) for i,e in enumerate(np.round(h_mm.diagonal().real[::5],1))])
+    plt.xticks(ticks=np.arange(0,natm*nbf,natm)-0.5,labels=np.arange(0,nbf))
+
 def reshaffle_matrix(matrix, perm_list, start=False):
     """Put permute_list at end of the matrix"""
     nbf = len(matrix)

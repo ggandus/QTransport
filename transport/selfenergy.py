@@ -11,30 +11,9 @@ class LeadSelfEnergy(InternalSelfEnergy):
     conv = 1e-8 # Convergence criteria for surface Green function
 
     def __init__(self, hs_dii, hs_dij, hs_dim, eta=1e-4):
-        # self.impl = _cpp.LeadSelfEnergy(*hs_dii, *hs_dij, *hs_dim, eta)
-        # _cpp.LeadSelfEnergy.__init__(self, *hs_dii, *hs_dij, *hs_dim, eta)
-        # self.h_ii, s_ii = hs_dii # onsite principal layer
-        # self.h_im, s_im = hs_dim # coupling to the central region
-        # self.nbf = self.h_im.shape[1] # nbf for the scattering region
-        # self.eta = eta
-        # self.energy = None
-        # self.sigma_mm = np.empty((self.nbf, self.nbf), complex)
-
         self.h_ij, self.s_ij = hs_dij # coupling between principal layers
         self.bias = 0
         InternalSelfEnergy.__init__(self, hs_dii, hs_dim, eta=eta)
-
-    # def retarded(self, energy):
-    #     """Return self-energy (sigma) evaluated at specified energy."""
-    #     if energy != self.energy:
-    #         self.energy = energy
-    #         z = energy - self.bias + self.eta * 1.j
-    #         tau_im = z * self.s_im - self.h_im
-    #         a_im = np.linalg.solve(self.get_sgfinv(energy), tau_im)
-    #         tau_mi = z * self.s_im.T.conj() - self.h_im.T.conj()
-    #         self.sigma_mm[:] = np.dot(tau_mi, a_im)
-    #
-    #     return self.sigma_mm
 
     def set_bias(self, bias):
         self.bias = bias
@@ -78,8 +57,8 @@ class LeadSelfEnergy(InternalSelfEnergy):
         self.h_ii = self.h_ii.copy() # needed because self[0].h_ii is self[1].h_ii
         self.s_ii = self.s_ii.copy() # as self[0].h_ii -> H1[:nprinc,:nprinc]
         InternalSelfEnergy.apply_rotation(self, c_mm)
-        self.h_ij = rotate_matrix(self.h_ij, c_mm) #np.dot(c_mm.T.conj(), self.h_ij)
-        self.s_ij = rotate_matrix(self.s_ij, c_mm) #np.dot(c_mm.T.conj(), self.s_ij)
+        self.h_ij = rotate_matrix(self.h_ij, c_mm)
+        self.s_ij = rotate_matrix(self.s_ij, c_mm) 
 
     def cutcoupling_bfs(self, bfs, apply=False):
         # self.get_sgfinv.cache_clear()

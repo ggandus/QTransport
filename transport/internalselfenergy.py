@@ -98,21 +98,3 @@ class InternalSelfEnergy(CoupledHamiltonian):
             self.s_im = np.dot(c_mm.T.conj(), self.s_im)
             self.Ginv = np.empty(self.H.shape, complex)
         return h_pp, s_pp, c_mm
-
-    # def orthogonalize(self, ):
-    #     s_ii = self.s_ii
-    #     s_mi = self.s_im.T
-    #     u_im = - self.s_im.T
-    #     u_mi = u_im.T
-    #     st_ii = s_ii + u_im.dot(s_mi) + (u_im.dot(s_mm) + s_im).dot(u_mi)
-    #     ht_ii = s_ii + u_im.dot(s_mi) + (u_im.dot(s_mm) + s_im).dot(u_mi)
-    #
-    #     U_DD = np.eye(len(self.s_ii))
-    #     U_DR = -s_im.dot(la.inv(s_mm))
-    #     O = np.zeros_like(s_im.T)
-    #     I = np.eye(len(s_mm))
-    #     U = np.block([[U_DD,U_DR],[O,I]])
-    #     c_mm = subdiagonalize(h_mm, s_mm, bfs)
-    #     if apply:
-    #       self.apply_rotation(c_mm)
-    #       return
