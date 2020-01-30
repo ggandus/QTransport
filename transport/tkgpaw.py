@@ -72,6 +72,22 @@ def subdiagonalize_atoms(calc, h_ii, s_ii, a=None):
     U_mm = block_diag(*U_mm)
     return U_mm, e_aj
 
+def get_bf_centers(atoms, basis=None):
+    calc = atoms.get_calculator()
+    if calc is None or isinstance(calc, SinglePointCalculator):
+        symbols = atoms.get_chemical_symbols()
+        basis_a = types2atomtypes(symbols, basis, 'dzp')
+        nao_a = [Basis(symbol, type).nao
+                 for symbol, type in zip(symbols, basis_a)]
+    else:
+        if not calc.initialized:
+            calc.initialize(atoms)
+        nao_a = [calc.wfs.setups[a].nao for a in range(len(atoms))]
+    pos_ic = []
+    for pos, nao in zip(atoms.get_positions(), nao_a):
+        pos_ic.extend(pos[None].repeat(nao, 0))
+    return np.array(pos_ic)
+
 def flatten(iterables):
     return (elem for iterable in iterables for elem in iterable)
 
