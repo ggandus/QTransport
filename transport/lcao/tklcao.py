@@ -4,16 +4,19 @@ from transport.tools import tri2full
 def symm_reduce(bzk_kc):
     '''This function reduces inversion symmetry along 1st dimension.'''
     ibzk_kc = []
-    for bzk_k in bzk_kc:
+    bzk2ibzk_k = []
+    for bzk_index, bzk_k in enumerate(bzk_kc):
         try:
             if bzk_k[np.nonzero(bzk_k)[0][0]] > 0:
                 ibzk_kc.append(bzk_k)
+                bzk2ibzk_k.append(bzk_index)
             else:
                 continue
         # zero case
         except IndexError:
             ibzk_kc.append(bzk_k)
-    return np.array(ibzk_kc)
+            bzk2ibzk_k.append(bzk_index)
+    return np.array(ibzk_kc), np.array(bzk2ibzk_k)
 
 def fourier_sum(A_kMM, k_kc, R_c):
     '''This function evaluates fourier sum'''
