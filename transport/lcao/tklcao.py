@@ -1,5 +1,6 @@
 import numpy as np
-from transport.tools import tri2full
+# from transport.tools import tri2full
+from gpaw.utilities.tools import tri2full
 
 def symm_reduce(bzk_kc):
     '''This function reduces inversion symmetry along 1st dimension.'''

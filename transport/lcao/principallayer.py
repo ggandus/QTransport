@@ -1,14 +1,25 @@
 import numpy as np
-from gpaw.symmetry import Symmetry
+from scipy import linalg as la
+# from gpaw.symmetry import Symmetry
 from ase.dft.kpoints import monkhorst_pack
 from .tklcao import *
+from transport.tkgpaw import get_bf_centers
+from transport.selfenergy import LeadSelfEnergy
+from transport.block import get_toeplitz
 
 class PrincipalLayer:
 
     def __init__(self, calc, direction='x'):
         self.calc = calc
         self.direction = direction
+
+        kd = self.calc.wfs.kd
+        self.ibzk_kc = kd.ibzk_kc
+        self.Nk_c = kd.N_c
+        self.offset_c = kd.offset_c
+
         self.update(direction)
+
 
     def get_directions(self):
         # Define transport and transverse directions
@@ -16,7 +27,7 @@ class PrincipalLayer:
         t_dirs = np.delete([0, 1, 2], p_dir)
         return p_dir, t_dirs
 
-    def initialize(self, H_kMM, S_kMM, direction):
+    def initialize(self, H_kMM, S_kMM, direction='x'):
 
         # self.H_kMM, self.S_kMM = h_and_s(self.calc)
 
@@ -26,54 +37,61 @@ class PrincipalLayer:
 
         R_c = [0,0,0]
         self.H_kii = self.bloch_to_real_space_p(H_kMM, R_c)
-        # self.S_kii = self.bloch_to_real_space_p(S_kMM, R_c)
+        self.S_kii = self.bloch_to_real_space_p(S_kMM, R_c)
 
-        # R_c[p_dir] = 1
-        # self.H_kij = self.bloch_to_real_space_p(H_kMM, R_c)
-        # self.S_kij = self.bloch_to_real_space_p(S_kMM, R_c)
-        #
-        # self.H_kji = self.H_kij.swapaxes(1,2).conj()
-        # self.S_kji = self.S_kij.swapaxes(1,2).conj()
+        R_c[p_dir] = 1
+        self.H_kij = self.bloch_to_real_space_p(H_kMM, R_c)
+        self.S_kij = self.bloch_to_real_space_p(S_kMM, R_c)
 
-        # self.sym = Symmetry(calc.atoms.numbers, np.array(calc.wfs.gd.cell_cv))
-        # self.tb  = TightBinding.__init__(atoms, calc)
+        # self.h_kij =  self.remove_pbc(self.H_kij)
+        # self.s_kij =  self.remove_pbc(self.S_kij)
+
+    @property
+    def H_kji(self):
+        return self.H_kij.swapaxes(1,2).conj()
+    @property
+    def S_kji(self):
+        return self.S_kij.swapaxes(1,2).conj()
+
+    def set_num_cells(self):
+
+        t_dirs = self.get_directions()[1]
+
+        # Lattice vectors
+        R_cN = np.indices(self.Nk_c[t_dirs]).reshape(2, -1)
+        N_c = np.array(self.Nk_c[t_dirs])[:, np.newaxis]
+        R_cN += N_c // 2
+        R_cN %= N_c
+        R_cN -= N_c // 2
+        self.R_cN = R_cN
 
     def update(self, direction='x'):
-
-        # Set irreducible k-points alogn transport and transverse dirs.
-        kd = self.calc.wfs.kd
-        Nk_c = kd.N_c
-        offset_c = kd.offset_c
 
         # Define transport and transverse directions
         p_dir, t_dirs = self.get_directions()
 
         # K-points in the transport direction
         offset_p_c = np.zeros((3,))
-        offset_p_c[p_dir] = offset_c[p_dir]
-        bzk_p_kc = monkhorst_pack((Nk_c[p_dir], 1, 1)) + offset_p_c
+        offset_p_c[p_dir] = self.offset_c[p_dir]
+        bzk_p_kc = monkhorst_pack((self.Nk_c[p_dir], 1, 1)) + offset_p_c
 
         # K-points in the transverse directions
         offset_t_c = np.zeros((3,))
-        offset_t_c[:len(t_dirs)] = offset_c[t_dirs]
-        bzk_t_kc = monkhorst_pack(tuple(Nk_c[t_dirs]) + (1, )) + offset_t_c
+        offset_t_c[:len(t_dirs)] = self.offset_c[t_dirs]
+        bzk_t_kc = monkhorst_pack(tuple(self.Nk_c[t_dirs]) + (1, )) + offset_t_c
 
         # Time-reversal symmetry
         ibzk_p_kc, bzk2ibzk_p_k = symm_reduce(bzk_p_kc)
         ibzk_t_kc = symm_reduce(bzk_t_kc)[0]
 
-        # # Detect gamma point in transport direction and store index
-        # self.gamma_point = True
-        # try:
-        #     self.gamma_index = np.where(np.linalg.norm(ibzk_p_kc, axis=1) < 1e-7)[0][0]
-        # except IndexError:
-        #     self.gamma_point = False
-
-        # Take dimensions and store bkz_p_k mapping in ibkz_p_k
+        # Take dimensions
         self.bzk_p_k   = bzk_p_kc[:, 0]
-        # self.bzk2ibzk_p_k = bzk2ibzk_p_k
-        # self.ibzk_p_k  = ibzk_p_kc[:, 0]
-        self.ibzk_t_kc = ibzk_t_kc[:, :2]
+        # self.ibzk_t_kc = ibzk_t_kc[:, :2]
+        self.ibzk_t_kc = bzk_t_kc[:, :2]
+        self.bzk_t_kc = bzk_t_kc[:, :2]
+
+        # Update number of cells
+        self.set_num_cells()
 
     def bloch_to_real_space_p(self, A_kMM, R_c):
 
@@ -82,10 +100,6 @@ class PrincipalLayer:
 
         # Parameters
         shape = A_kMM.shape
-        kd = self.calc.wfs.kd
-        ibzk_kc = kd.ibzk_kc
-        Nk_c = kd.N_c
-        offset_c = kd.offset_c
 
         # Transport and transverse k-points
         p_dir, t_dirs = self.get_directions()
@@ -101,7 +115,7 @@ class PrincipalLayer:
             A_xMM = []
             for k_c in k_kc:
                 try:
-                    residue_k = np.linalg.norm(k_c-ibzk_kc, axis=1)
+                    residue_k = np.linalg.norm(k_c-self.ibzk_kc, axis=1)
                     kc2ibzk = np.where(np.abs(residue_k) < 1e-7)[0][0]
                     A_xMM.append(A_kMM[kc2ibzk])
                 except IndexError:
@@ -110,55 +124,169 @@ class PrincipalLayer:
                     # Since we require A_kMM[k_c], we can take A_kMM[-k_c].conj(),
                     # which is equivalente and present in lcao calculation.
                     try:
-                        residue_k = np.linalg.norm((-k_c)-ibzk_kc, axis=1)
+                        residue_k = np.linalg.norm((-k_c)-self.ibzk_kc, axis=1)
                         kc2ibzk = np.where(np.abs(residue_k) < 1e-7)[0][0]
                         A_xMM.append(A_kMM[kc2ibzk].conj())
                     except IndexError:
                         raise IndexError('k-point {} not found'.format(k_c))
             A_MM  = fourier_sum(np.array(A_xMM), k_kc, R_c)
 
-            A_MM /= Nk_c[p_dir]
+            A_MM /= self.Nk_c[p_dir]
 
             A_NMM.append(A_MM)
 
         return np.array(A_NMM)
 
-    def bloch_to_real_space_t(self, A_kMM, R_Nc):
+    def bloch_to_real_space_t(self, A_kMM, R_Nc=None):
 
         # Output matrix evaluated at (each>?1) transverse k-point.
         A_NMM = []
 
         # Parameters
         shape = A_kMM.shape
-        kd = self.calc.wfs.kd
-        ibzk_kc = kd.ibzk_kc
-        Nk_c = kd.N_c
+        if R_Nc is None:
+            R_Nc = self.R_cN.T
 
         # Transport and transverse k-points
         p_dir, t_dirs = self.get_directions()
-        ibzk_t_kc = self.ibzk_t_kc
 
-        # Detect gamma point in transport direction and store index
+        # Detect gamma point
         gamma_point = True
         try:
-            gamma = np.where(np.linalg.norm(ibzk_t_kc, axis=1) < 1e-7)[0][0]
+            gamma = np.where(np.linalg.norm(self.ibzk_kc, axis=1) < 1e-7)[0][0]
         except IndexError:
             gamma_point = False
 
         # For each real space point, Fourier transform in trasverse direction
         for i, R_c in enumerate(R_Nc):
             # Evaualte fourier sum in tranverse direction
-            A_MM = fourier_sum(A_kMM, ibzk_t_kc, R_c)
+            A_MM = fourier_sum(A_kMM, self.ibzk_t_kc, R_c)
 
-            # Add conjugate and subtract double counted Gamma (in transport component)
-            if gamma_point:
-                A0_MM = A_kMM[gamma]
-                A_MM += A_MM.conj() - A0_MM
-            else:
-                A_MM += A_MM.conj()
+            if len(self.ibzk_t_kc) < len(self.bzk_t_kc):
+                # Add conjugate and subtract double counted Gamma (in transport component)
+                if gamma_point:
+                    A0_MM = A_kMM[gamma]
+                    A_MM += A_MM.conj() - A0_MM
+                else:
+                    A_MM += A_MM.conj()
 
-            A_MM /= np.prod(Nk_c[t_dirs])
+            A_MM /= np.prod(self.Nk_c[t_dirs])
 
             A_NMM.append(A_MM)
 
         return np.array(A_NMM)
+
+    def remove_pbc(self, A_kMM, eps=-1e-3):
+
+        # atoms of principal layer
+        atoms = self.calc.atoms
+        atoms.set_calculator(self.calc)
+
+        # Transport direction
+        p_dir = self.get_directions()[0]
+
+        L = atoms.cell[p_dir, p_dir]
+
+        centers_ic = get_bf_centers(atoms)
+        cutoff = L - eps
+        # Coordinates of central unit cell i (along transport)
+        centers_p_i = centers_ic[:, p_dir]
+        # Coordinates of neighbooring unit cell j
+        centers_p_j = centers_p_i + L
+        # Distance between j atoms and i atoms
+        dist_p_ji = np.abs(centers_p_j[:, None] - centers_p_i[None, :])
+        # Mask j atoms farther than L
+        mask_ji = (dist_p_ji > cutoff).astype(A_kMM.dtype)
+
+        A_kMM *= mask_ji[None, :]
+
+    def lowdin_rotation(self):
+        eig, rot_mm = linalg.eigh(s_mm)
+        eig = np.abs(eig)
+        rot_mm = np.dot(rot_mm / np.sqrt(eig), dagger(rot_mm))
+        if apply:
+            self.uptodate = False
+            h_mm[:] = rotate_matrix(h_mm, rot_mm)  # rotate C region
+            s_mm[:] = rotate_matrix(s_mm, rot_mm)
+
+class PrincipalSelfEnergy(PrincipalLayer):
+
+    def __init__(self, calc, direction='x'):
+
+        super().__init__(calc, direction)
+
+    def initialize(self, H_kMM, S_kMM, direction='x'):
+
+        super().initialize(H_kMM, S_kMM, direction)
+
+        self.remove_pbc(self.H_kij)
+        self.remove_pbc(self.S_kij)
+
+        self.selfenergies = [LeadSelfEnergy((h_ii,s_ii),
+                                            (h_ij,s_ij),
+                                            (h_ij,s_ij))
+                             for h_ii, s_ii, h_ij, s_ij in zip(self.H_kii,
+                                                               self.S_kii,
+                                                               self.H_kij,
+                                                               self.S_kij)]
+
+        self.h_ii = self.get_toeplitz(self.H_kii)
+        self.s_ii = self.get_toeplitz(self.S_kii)
+        self.h_ij = self.get_toeplitz(self.H_kij)
+        self.s_ij = self.get_toeplitz(self.S_kij)
+
+    @property
+    def H(self):
+        return self.h_ii
+    @property
+    def S(self):
+        return self.s_ii
+
+    def get_toeplitz(self, A_NMM):
+
+        t_dirs = self.get_directions()[1]
+
+        index_rows = symm_reduce(self.R_cN.T)[1]
+        indices = np.arange(np.prod(self.Nk_c[t_dirs]))
+        index_cols = np.setdiff1d(indices, index_rows) 
+
+        # The new dimension (x) equals M \times the number of rows
+        rows = A_NMM.take(index_rows, axis=0)
+        cols = A_NMM.take(index_cols, axis=0)
+        A_xx = get_toeplitz(rows=rows, cols=cols)
+
+        return A_xx
+
+    def dos(self, energy):
+        """Total density of states -1/pi Im(Tr(GS))"""
+        if not hasattr(self, 'S'):
+            return -self.retarded(energy).imag.trace() / np.pi
+        else:
+            # S = self.get_toeplitz(self.S_kii)
+            G = self.retarded(energy)
+            return -G.dot(S).imag.trace() / np.pi
+
+    def pdos(self, energy):
+        """Projected density of states -1/pi Im(SGS/S)"""
+        if not hasattr(self, 'S'):
+            return -self.retarded(energy).imag.diagonal() / np.pi
+        else:
+            # S = self.get_toeplitz(self.S_kii)
+            G = self.retarded(energy)
+            SGS = np.dot(S, G.dot(S))
+            return -(SGS.diagonal() / S.diagonal()).imag / np.pi
+
+    def retarded(self, energy):
+
+        # Green's functions at thanverse k-points
+        G_kMM = []
+
+        # Compute self-energies at transverse k-points
+        for selfenergy in self.selfenergies:
+            G_kMM.append(la.inv(selfenergy.get_Ginv(energy)))
+        G_kMM = np.array(G_kMM)
+
+        # Compute quantities in realspace
+        G_NMM = self.bloch_to_real_space_t(G_kMM)
+
+        return self.get_toeplitz(G_NMM)

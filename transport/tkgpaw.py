@@ -73,6 +73,10 @@ def subdiagonalize_atoms(calc, h_ii, s_ii, a=None):
     return U_mm, e_aj
 
 def get_bf_centers(atoms, basis=None):
+
+    from ase.calculators.singlepoint import SinglePointCalculator
+    from gpaw.setup import types2atomtypes
+
     calc = atoms.get_calculator()
     if calc is None or isinstance(calc, SinglePointCalculator):
         symbols = atoms.get_chemical_symbols()
