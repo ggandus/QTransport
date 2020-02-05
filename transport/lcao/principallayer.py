@@ -1,9 +1,11 @@
 import numpy as np
 from scipy import linalg as la
+from collections import namedtuple
 # from gpaw.symmetry import Symmetry
 from ase.dft.kpoints import monkhorst_pack
 from .tklcao import *
 from transport.tkgpaw import get_bf_centers
+from transport.tools import rotate_matrix, dagger
 from transport.selfenergy import LeadSelfEnergy
 from transport.block import get_toeplitz
 
@@ -43,9 +45,6 @@ class PrincipalLayer:
         self.H_kij = self.bloch_to_real_space_p(H_kMM, R_c)
         self.S_kij = self.bloch_to_real_space_p(S_kMM, R_c)
 
-        # self.h_kij =  self.remove_pbc(self.H_kij)
-        # self.s_kij =  self.remove_pbc(self.S_kij)
-
     @property
     def H_kji(self):
         return self.H_kij.swapaxes(1,2).conj()
@@ -64,6 +63,17 @@ class PrincipalLayer:
         R_cN %= N_c
         R_cN -= N_c // 2
         self.R_cN = R_cN
+
+        # Informations to map transverse directions in real-space matrix
+        matrix = namedtuple('matrix',['index_rows','index_cols'])
+
+        # Set indices of rows and columns in real-space matrix
+        matrix.index_rows = symm_reduce(self.R_cN.T)[1]
+        indices = np.arange(np.prod(self.Nk_c[t_dirs]))
+        matrix.index_cols = np.setdiff1d(indices, matrix.index_rows)[::-1]
+
+        # Store matrix informations
+        self.matrix = matrix
 
     def update(self, direction='x'):
 
@@ -200,14 +210,21 @@ class PrincipalLayer:
 
         A_kMM *= mask_ji[None, :]
 
-    def lowdin_rotation(self):
-        eig, rot_mm = linalg.eigh(s_mm)
-        eig = np.abs(eig)
-        rot_mm = np.dot(rot_mm / np.sqrt(eig), dagger(rot_mm))
-        if apply:
-            self.uptodate = False
-            h_mm[:] = rotate_matrix(h_mm, rot_mm)  # rotate C region
-            s_mm[:] = rotate_matrix(s_mm, rot_mm)
+    def bloch_to_real_space_block(self, A_kMM):
+
+        # Indices of cell vectors in matrix
+        index_rows = self.matrix.index_rows
+        index_cols = self.matrix.index_cols
+
+        # Fourier transform in transverse directions
+        A_NMM = self.bloch_to_real_space_t(A_kMM)
+
+        # The new dimension (x) equals M \times the number of rows
+        rows = A_NMM.take(index_rows, axis=0)
+        cols = A_NMM.take(index_cols, axis=0)
+        A_xx = get_toeplitz(rows=rows, cols=cols)
+
+        return A_xx
 
 class PrincipalSelfEnergy(PrincipalLayer):
 
@@ -222,6 +239,8 @@ class PrincipalSelfEnergy(PrincipalLayer):
         self.remove_pbc(self.H_kij)
         self.remove_pbc(self.S_kij)
 
+        # self.lowdin_rotation()
+
         self.selfenergies = [LeadSelfEnergy((h_ii,s_ii),
                                             (h_ij,s_ij),
                                             (h_ij,s_ij))
@@ -230,10 +249,50 @@ class PrincipalSelfEnergy(PrincipalLayer):
                                                                self.H_kij,
                                                                self.S_kij)]
 
-        self.h_ii = self.get_toeplitz(self.H_kii)
-        self.s_ii = self.get_toeplitz(self.S_kii)
-        self.h_ij = self.get_toeplitz(self.H_kij)
-        self.s_ij = self.get_toeplitz(self.S_kij)
+
+        self.H_Nii = self.bloch_to_real_space_t(self.H_kii)
+        self.S_Nii = self.bloch_to_real_space_t(self.S_kii)
+        self.H_Nij = self.bloch_to_real_space_t(self.H_kij)
+        self.S_Nij = self.bloch_to_real_space_t(self.S_kij)
+
+        self.h_ii = self.bloch_to_real_space_block(self.H_kii)
+        self.s_ii = self.bloch_to_real_space_block(self.S_kii)
+        self.h_ij = self.bloch_to_real_space_block(self.H_kij)
+        self.s_ij = self.bloch_to_real_space_block(self.S_kij)
+
+
+
+    def lowdin_rotation(self, apply=True):
+        # Lowding rotation at each k-point
+
+        # number of k-point(s) and basis functions
+        nkt, nbf = self.H_kii.shape[:2]
+
+        # Indices of H_kii and H_kij subblocks in H_kmm
+        index_kii = np.ix_(range(nkt),range(nbf),range(nbf))
+        index_kij = np.ix_(range(nkt),range(nbf),range(nbf,2*nbf))
+
+        # Construct bigger matrices
+        H_kmm = np.block([[self.H_kii,self.H_kij],
+                          [self.H_kji,self.H_kii]])
+        S_kmm = np.block([[self.S_kii,self.S_kij],
+                          [self.S_kji,self.S_kii]])
+
+        # Lowdin transform at every k-point
+        for h_mm, s_mm in zip(H_kmm, S_kmm):
+            eig, rot_mm = np.linalg.eigh(s_mm)
+            eig = np.abs(eig)
+            rot_mm = np.dot(rot_mm / np.sqrt(eig), dagger(rot_mm))
+            if apply:
+                self.uptodate = False
+                h_mm[:] = rotate_matrix(h_mm, rot_mm)  # rotate C region
+                s_mm[:] = rotate_matrix(s_mm, rot_mm)
+
+        # Update
+        self.H_kii[:] = H_kmm[index_kii]
+        self.S_kii[:] = S_kmm[index_kii]
+        self.H_kij[:] = H_kmm[index_kij]
+        self.S_kij[:] = S_kmm[index_kij]
 
     @property
     def H(self):
@@ -242,21 +301,6 @@ class PrincipalSelfEnergy(PrincipalLayer):
     def S(self):
         return self.s_ii
 
-    def get_toeplitz(self, A_NMM):
-
-        t_dirs = self.get_directions()[1]
-
-        index_rows = symm_reduce(self.R_cN.T)[1]
-        indices = np.arange(np.prod(self.Nk_c[t_dirs]))
-        index_cols = np.setdiff1d(indices, index_rows) 
-
-        # The new dimension (x) equals M \times the number of rows
-        rows = A_NMM.take(index_rows, axis=0)
-        cols = A_NMM.take(index_cols, axis=0)
-        A_xx = get_toeplitz(rows=rows, cols=cols)
-
-        return A_xx
-
     def dos(self, energy):
         """Total density of states -1/pi Im(Tr(GS))"""
         if not hasattr(self, 'S'):
@@ -264,6 +308,7 @@ class PrincipalSelfEnergy(PrincipalLayer):
         else:
             # S = self.get_toeplitz(self.S_kii)
             G = self.retarded(energy)
+            S = self.S
             return -G.dot(S).imag.trace() / np.pi
 
     def pdos(self, energy):
@@ -273,6 +318,7 @@ class PrincipalSelfEnergy(PrincipalLayer):
         else:
             # S = self.get_toeplitz(self.S_kii)
             G = self.retarded(energy)
+            S = self.S
             SGS = np.dot(S, G.dot(S))
             return -(SGS.diagonal() / S.diagonal()).imag / np.pi
 
@@ -287,6 +333,4 @@ class PrincipalSelfEnergy(PrincipalLayer):
         G_kMM = np.array(G_kMM)
 
         # Compute quantities in realspace
-        G_NMM = self.bloch_to_real_space_t(G_kMM)
-
-        return self.get_toeplitz(G_NMM)
+        return self.bloch_to_real_space_block(G_kMM)

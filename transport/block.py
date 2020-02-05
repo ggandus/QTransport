@@ -326,8 +326,7 @@ def get_toeplitz(rows, cols=None):
         cols  = rows
     else:
         assert len(cols) == len(rows) - 1
-        cols = np.insert(rows, 0, rows[0], axis=0)
-        # cols.insert(0, rows[0])
+        cols = np.insert(cols, 0, rows[0], axis=0)
     dtype = rows[0].dtype
     m, n  = rows[0].shape
     n_r   = len(rows)
@@ -349,9 +348,9 @@ def test_toepliz():
             np.arange(8,12).reshape(2,2)]
     cols = [np.arange(12,16).reshape(2,2),
             np.arange(16,20).reshape(2,2)]
-    mat  = get_toeplitz(np.array(rows), cols)
+    mat  = get_toeplitz(np.array(rows), np.array(cols))
 
-    assert np.allclose(mat, array([[ 0,  1,  4,  5,  8,  9],
+    assert np.allclose(mat, np.array([[ 0,  1,  4,  5,  8,  9],
                                    [ 2,  3,  6,  7, 10, 11],
                                    [12, 13,  0,  1,  4,  5],
                                    [14, 15,  2,  3,  6,  7],
