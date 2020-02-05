@@ -213,16 +213,21 @@ class PrincipalLayer:
     def bloch_to_real_space_block(self, A_kMM):
 
         # Indices of cell vectors in matrix
-        index_rows = self.matrix.index_rows
-        index_cols = self.matrix.index_cols
+        # index_rows = self.matrix.index_rows
+        # index_cols = self.matrix.index_cols
 
         # Fourier transform in transverse directions
         A_NMM = self.bloch_to_real_space_t(A_kMM)
 
         # The new dimension (x) equals M \times the number of rows
-        rows = A_NMM.take(index_rows, axis=0)
-        cols = A_NMM.take(index_cols, axis=0)
-        A_xx = get_toeplitz(rows=rows, cols=cols)
+        # cols = A_NMM.take(index_cols, axis=0)
+        # rows = A_NMM.take(index_rows, axis=0)
+        # if len(A_kMM) > 1:
+        #     rows = A_NMM.take([0,1,2], axis=0)
+        #     cols = A_NMM.take([0,2,1], axis=0)
+
+        # The new dimension (x) equals M \times the number of rows
+        A_xx = get_toeplitz(rows=A_NMM)#, cols=cols)
 
         return A_xx
 
@@ -307,22 +312,34 @@ class PrincipalSelfEnergy(PrincipalLayer):
             return -self.retarded(energy).imag.trace() / np.pi
         else:
             # S = self.get_toeplitz(self.S_kii)
-            G = self.retarded(energy)
+            G = self.get_G(energy)
             S = self.S
             return -G.dot(S).imag.trace() / np.pi
 
     def pdos(self, energy):
         """Projected density of states -1/pi Im(SGS/S)"""
         if not hasattr(self, 'S'):
-            return -self.retarded(energy).imag.diagonal() / np.pi
+            return -self.get_G(energy).imag.diagonal() / np.pi
         else:
             # S = self.get_toeplitz(self.S_kii)
-            G = self.retarded(energy)
+            G = self.get_G(energy)
             S = self.S
             SGS = np.dot(S, G.dot(S))
             return -(SGS.diagonal() / S.diagonal()).imag / np.pi
 
     def retarded(self, energy):
+        """Return self-energy (sigma) evaluated at specified energy."""
+        if energy != self.energy:
+            self.energy = energy
+            z = energy - self.bias + self.eta * 1.j
+            tau_im = z * self.s_im - self.h_im
+            G = self.get_G(energy)
+            tau_mi = z * self.s_im.T.conj() - self.h_im.T.conj()
+            self.sigma_mm[:] = tau_mi.dot(G).dot(tau_im)
+
+        return self.sigma_mm
+
+    def get_G(self, energy):
 
         # Green's functions at thanverse k-points
         G_kMM = []

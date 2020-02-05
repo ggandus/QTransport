@@ -323,10 +323,15 @@ def get_toeplitz(rows, cols=None):
     '''This function constructs the toepliz matrix from the
     input block rows. If cols is None, the matrix is Hermitian.'''
     if cols is None:
-        cols  = rows
-    else:
-        assert len(cols) == len(rows) - 1
+        cols  = rows[1:][::-1]
+    # from IPython import embed
+    # embed()
+    # else:
+    # add (0,0) bloch diagonal block at front
+    if len(cols) == len(rows) - 1:
         cols = np.insert(cols, 0, rows[0], axis=0)
+    # cols contains (0,0) bloch diagonal block
+    assert len(cols) == len(rows)
     dtype = rows[0].dtype
     m, n  = rows[0].shape
     n_r   = len(rows)
