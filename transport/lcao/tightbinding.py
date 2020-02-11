@@ -159,12 +159,13 @@ class TightBinding:
             #XXX Converting to full matrices here
             tri2full(H_MM)
             tri2full(S_MM)
-            H_kMM.append(H_MM)
+            H_kMM.append(H_MM * units.Hartree) # convert to eV
             S_kMM.append(S_MM)
 
         # Convert to arrays
         H_kMM = np.array(H_kMM)
         S_kMM = np.array(S_kMM)
+        H_kMM -= self.calc.get_fermi_level() * S_kMM
 
         H_NMM = self.bloch_to_real_space(H_kMM)
         S_NMM = self.bloch_to_real_space(S_kMM)
@@ -219,7 +220,7 @@ class TightBinding:
             eps_kn.append(eps_n)
 
         # Convert to eV
-        eps_kn = np.array(eps_kn) * units.Hartree
+        eps_kn = np.array(eps_kn) #* units.Hartree
 
         if blochstates:
             return eps_kn, np.array(psi_kn)

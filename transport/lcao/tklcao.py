@@ -1,6 +1,7 @@
 import numpy as np
 # from transport.tools import tri2full
 from gpaw.utilities.tools import tri2full
+from ase.units import Hartree
 
 def symm_reduce(bzk_kc):
     '''This function reduces inversion symmetry along 1st dimension.'''
@@ -45,7 +46,7 @@ def h_and_s(calc):
         #XXX Converting to full matrices here
         tri2full(H_MM)
         tri2full(S_MM)
-        H_kMM.append(H_MM)
+        H_kMM.append(H_MM)# * Hartree)
         S_kMM.append(S_MM)
 
     # Convert to arrays

@@ -56,6 +56,21 @@ class InternalSelfEnergy(CoupledHamiltonian):
         else:
             return la.inv(self.Ginv)
 
+    def apply_retarded(self, energy, X):
+        """Apply retarded Green function to X.
+
+        Returns the matrix product G^r(e) . X
+        """
+        return la.solve(self.get_Ginv(energy), X)
+
+    def dos(self, energy):
+        """Total density of states -1/pi Im(Tr(GS))"""
+        if self.S is None:
+            return -self.get_Ginv(energy, inverse=False).imag.trace() / np.pi
+        else:
+            GS = self.apply_retarded(energy, self.S)
+            return -GS.imag.trace() / np.pi
+
     def get_matsubara(self, beta, n):
         w_n = np.pi/beta * (2*n + 1)
         energy = 1.j * w_n - self.eta * 1.j

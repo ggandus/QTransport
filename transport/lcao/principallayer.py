@@ -4,8 +4,8 @@ from collections import namedtuple
 # from gpaw.symmetry import Symmetry
 from ase.dft.kpoints import monkhorst_pack
 from .tklcao import *
-from transport.tkgpaw import get_bf_centers
-from transport.tools import rotate_matrix, dagger
+from transport.tkgpaw import get_bf_centers, get_bfs_indices, flatten
+from transport.tools import rotate_matrix, dagger, get_subspace
 from transport.selfenergy import LeadSelfEnergy
 from transport.block import get_toeplitz
 
@@ -22,16 +22,11 @@ class PrincipalLayer:
 
         self.update(direction)
 
+    def initialize(self, H_kMM=None, S_kMM=None, direction='x'):
 
-    def get_directions(self):
-        # Define transport and transverse directions
-        p_dir = 'xyz'.index(self.direction)
-        t_dirs = np.delete([0, 1, 2], p_dir)
-        return p_dir, t_dirs
-
-    def initialize(self, H_kMM, S_kMM, direction='x'):
-
-        # self.H_kMM, self.S_kMM = h_and_s(self.calc)
+        if H_kMM is None:
+            H_kMM, S_kMM = h_and_s(self.calc)
+            self.align_fermi(H_kMM, S_kMM)
 
         # Transport direction
         self.update(direction)
@@ -52,6 +47,12 @@ class PrincipalLayer:
     def S_kji(self):
         return self.S_kij.swapaxes(1,2).conj()
 
+    def get_directions(self):
+        # Define transport and transverse directions
+        p_dir = 'xyz'.index(self.direction)
+        t_dirs = np.delete([0, 1, 2], p_dir)
+        return p_dir, t_dirs
+
     def set_num_cells(self):
 
         t_dirs = self.get_directions()[1]
@@ -64,16 +65,10 @@ class PrincipalLayer:
         R_cN -= N_c // 2
         self.R_cN = R_cN
 
-        # Informations to map transverse directions in real-space matrix
-        matrix = namedtuple('matrix',['index_rows','index_cols'])
+    def align_fermi(self, H_kMM, S_kMM):
 
-        # Set indices of rows and columns in real-space matrix
-        matrix.index_rows = symm_reduce(self.R_cN.T)[1]
-        indices = np.arange(np.prod(self.Nk_c[t_dirs]))
-        matrix.index_cols = np.setdiff1d(indices, matrix.index_rows)[::-1]
-
-        # Store matrix informations
-        self.matrix = matrix
+        fermi = self.calc.get_fermi_level()
+        H_kMM -= fermi * S_kMM
 
     def update(self, direction='x'):
 
@@ -212,40 +207,105 @@ class PrincipalLayer:
 
     def bloch_to_real_space_block(self, A_kMM):
 
-        # Indices of cell vectors in matrix
-        # index_rows = self.matrix.index_rows
-        # index_cols = self.matrix.index_cols
-
         # Fourier transform in transverse directions
         A_NMM = self.bloch_to_real_space_t(A_kMM)
 
         # The new dimension (x) equals M \times the number of rows
-        # cols = A_NMM.take(index_cols, axis=0)
-        # rows = A_NMM.take(index_rows, axis=0)
-        # if len(A_kMM) > 1:
-        #     rows = A_NMM.take([0,1,2], axis=0)
-        #     cols = A_NMM.take([0,2,1], axis=0)
-
-        # The new dimension (x) equals M \times the number of rows
-        A_xx = get_toeplitz(rows=A_NMM)#, cols=cols)
+        A_xx = get_toeplitz(rows=A_NMM)
 
         return A_xx
 
+    def set_order(self, atoms):
+
+        # Transverse directions and # of k-point
+        p_dir, t_dirs = self.get_directions()
+        N_c = self.Nk_c.copy()
+        N_c[p_dir] = 1
+
+        # number of repeted unitcells and atoms
+        M = np.prod(N_c)
+        n = len(self.calc.atoms)
+        na = M * n
+
+        # Reverse for yes-pbc to no-pbc
+        R_Nc = np.indices(N_c).reshape(3, -1).T
+
+        # Positions in repeted structure
+        pos_ac = np.tile(self.calc.atoms.positions, (M, 1))
+        i0 = 0
+        for R_c in R_Nc:
+            i1 = i0 + n
+            # add unit cell
+            pos_ac[i0:i1] += np.dot(R_c, self.calc.atoms.cell)
+            # next unit cell
+            i0 = i1
+
+        # index of repeted structure (a) in input atoms (x)
+        a2x_a = np.argmin(
+                    np.linalg.norm(
+                        pos_ac[:,None] - atoms.positions[None,:],
+                        axis=2),
+                    axis=0)
+
+        # Basis function indices in repeted structure
+        bfs_a = get_bfs_indices(self.calc, range(n), 'append') * M
+        nao = self.calc.setups.nao
+        for a in range(len(bfs_a)):
+            count = (a//n) * nao
+            bfs_a[a] = [bf+count for bf in bfs_a[a]]
+
+        # index of bfs (a) in (x)
+        bfa2bfx_i = []
+        for a in a2x_a:
+            bfa2bfx_i.extend(bfs_a[a])
+
+        # Store
+        self.bfa2bfx_i = bfa2bfx_i
+        self.a2x_a = a2x_a
+
+        # Decorate bloch_to_real_space_block to order return matrix
+        self.bloch_to_real_space_block = self._order_return(
+                                self.bloch_to_real_space_block)
+
+    def _order_return(self, func):
+
+        # Hack to order matrix according to (x) bfs.
+        def _order(func):
+            def _inner(A_NMM):
+                # Get matrix
+                M = _f(A_NMM)
+                # Order
+                return get_subspace(M, self.bfa2bfx_i)
+            _f = func
+            return _inner
+
+        return _order(func)
+
 class PrincipalSelfEnergy(PrincipalLayer):
 
-    def __init__(self, calc, direction='x'):
+    def __init__(self, calc, direction='x', scatt=None, id=0):
 
         super().__init__(calc, direction)
 
-    def initialize(self, H_kMM, S_kMM, direction='x'):
+        self.scatt = scatt
+        self.eta = 1e-5
+        self.energy = None
+        self.bias = 0
+        self.id = id
+
+    def initialize(self, H_kMM=None, S_kMM=None, direction='x'):
 
         super().initialize(H_kMM, S_kMM, direction)
 
         self.remove_pbc(self.H_kij)
         self.remove_pbc(self.S_kij)
 
-        # self.lowdin_rotation()
+        # Right lead
+        if self.id == 1:
+            self.H_kij = self.H_kji
+            self.S_kij = self.S_kji
 
+        # Selfenergies
         self.selfenergies = [LeadSelfEnergy((h_ii,s_ii),
                                             (h_ij,s_ij),
                                             (h_ij,s_ij))
@@ -254,18 +314,103 @@ class PrincipalSelfEnergy(PrincipalLayer):
                                                                self.H_kij,
                                                                self.S_kij)]
 
-
-        self.H_Nii = self.bloch_to_real_space_t(self.H_kii)
-        self.S_Nii = self.bloch_to_real_space_t(self.S_kii)
-        self.H_Nij = self.bloch_to_real_space_t(self.H_kij)
-        self.S_Nij = self.bloch_to_real_space_t(self.S_kij)
+        # Number of basis functions leads (i) and scattering (m) regions
+        nbf_i = self.calc.setups.nao * len(self.R_cN.T)
+        if self.scatt:
+            natoms = len(self.calc.atoms) * len(self.R_cN.T)
+            self.set_order(self.scatt.atoms[:natoms])
+            nbf_m = self.scatt.setups.nao
+        else:
+            nbf_m = nbf_i
 
         self.h_ii = self.bloch_to_real_space_block(self.H_kii)
         self.s_ii = self.bloch_to_real_space_block(self.S_kii)
         self.h_ij = self.bloch_to_real_space_block(self.H_kij)
         self.s_ij = self.bloch_to_real_space_block(self.S_kij)
 
+        # Coupling to central region
+        dtype = self.h_ij.dtype
+        self.h_im  = np.zeros((nbf_i,nbf_m),dtype=dtype)
+        self.s_im  = np.zeros((nbf_i,nbf_m),dtype=dtype)
 
+        if self.id == 0:
+            self.h_im[:nbf_i, :nbf_i] = self.h_ij
+            self.s_im[:nbf_i, :nbf_i] = self.s_ij
+
+        elif self.id == 1:
+            self.h_im[-nbf_i:, -nbf_i:] = self.h_ij
+            self.s_im[-nbf_i:, -nbf_i:] = self.s_ij
+
+        self.sigma_mm = np.zeros((nbf_m,nbf_m), dtype=complex)
+
+        self.nbf_m = nbf_m
+        self.nbf_i = nbf_i
+
+    def retarded(self, energy):
+        """Return self-energy (sigma) evaluated at specified energy."""
+        if energy != self.energy:
+            self.energy = energy
+            z = energy - self.bias + self.eta * 1.j
+            tau_im = z * self.s_im - self.h_im
+            G = self.get_G(energy)
+            tau_mi = z * self.s_im.T.conj() - self.h_im.T.conj()
+            self.sigma_mm[:] = tau_mi.dot(G).dot(tau_im)
+
+        return self.sigma_mm
+
+    def get_lambda(self, energy):
+        """Return the lambda (aka Gamma) defined by i(S-S^d).
+
+        Here S is the retarded selfenergy, and d denotes the hermitian
+        conjugate.
+        """
+        sigma_mm = self.retarded(energy)
+        return 1.j * (sigma_mm - sigma_mm.T.conj())
+
+    def get_G(self, energy):
+
+        # Green's functions at thanverse k-points
+        G_kMM = []
+
+        # Compute self-energies at transverse k-points
+        for selfenergy in self.selfenergies:
+            G_kMM.append(la.inv(selfenergy.get_Ginv(energy)))
+        G_kMM = np.array(G_kMM)
+
+        # Compute quantities in realspace
+        G = self.bloch_to_real_space_block(G_kMM)
+        return G
+
+    def dos(self, energy):
+        """Total density of states -1/pi Im(Tr(GS))"""
+        if not hasattr(self, 'S'):
+            return -self.retarded(energy).imag.trace() / np.pi
+        else:
+            G = self.get_G(energy)
+            S = self.S
+            return -G.dot(S).imag.trace() / np.pi
+
+    def pdos(self, energy):
+        """Projected density of states -1/pi Im(SGS/S)"""
+        if not hasattr(self, 'S'):
+            return -self.get_G(energy).imag.diagonal() / np.pi
+        else:
+            G = self.get_G(energy)
+            S = self.S
+            SGS = np.dot(S, G.dot(S))
+            return -(SGS.diagonal() / S.diagonal()).imag / np.pi
+
+
+    ####### CONVENIENT ALISES ########
+
+    @property
+    def H(self):
+        return self.h_ii
+    @property
+    def S(self):
+        return self.s_ii
+
+    ######## MODIFIERS ################
 
     def lowdin_rotation(self, apply=True):
         # Lowding rotation at each k-point
@@ -298,56 +443,3 @@ class PrincipalSelfEnergy(PrincipalLayer):
         self.S_kii[:] = S_kmm[index_kii]
         self.H_kij[:] = H_kmm[index_kij]
         self.S_kij[:] = S_kmm[index_kij]
-
-    @property
-    def H(self):
-        return self.h_ii
-    @property
-    def S(self):
-        return self.s_ii
-
-    def dos(self, energy):
-        """Total density of states -1/pi Im(Tr(GS))"""
-        if not hasattr(self, 'S'):
-            return -self.retarded(energy).imag.trace() / np.pi
-        else:
-            # S = self.get_toeplitz(self.S_kii)
-            G = self.get_G(energy)
-            S = self.S
-            return -G.dot(S).imag.trace() / np.pi
-
-    def pdos(self, energy):
-        """Projected density of states -1/pi Im(SGS/S)"""
-        if not hasattr(self, 'S'):
-            return -self.get_G(energy).imag.diagonal() / np.pi
-        else:
-            # S = self.get_toeplitz(self.S_kii)
-            G = self.get_G(energy)
-            S = self.S
-            SGS = np.dot(S, G.dot(S))
-            return -(SGS.diagonal() / S.diagonal()).imag / np.pi
-
-    def retarded(self, energy):
-        """Return self-energy (sigma) evaluated at specified energy."""
-        if energy != self.energy:
-            self.energy = energy
-            z = energy - self.bias + self.eta * 1.j
-            tau_im = z * self.s_im - self.h_im
-            G = self.get_G(energy)
-            tau_mi = z * self.s_im.T.conj() - self.h_im.T.conj()
-            self.sigma_mm[:] = tau_mi.dot(G).dot(tau_im)
-
-        return self.sigma_mm
-
-    def get_G(self, energy):
-
-        # Green's functions at thanverse k-points
-        G_kMM = []
-
-        # Compute self-energies at transverse k-points
-        for selfenergy in self.selfenergies:
-            G_kMM.append(la.inv(selfenergy.get_Ginv(energy)))
-        G_kMM = np.array(G_kMM)
-
-        # Compute quantities in realspace
-        return self.bloch_to_real_space_block(G_kMM)

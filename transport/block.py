@@ -324,9 +324,6 @@ def get_toeplitz(rows, cols=None):
     input block rows. If cols is None, the matrix is Hermitian.'''
     if cols is None:
         cols  = rows[1:][::-1]
-    # from IPython import embed
-    # embed()
-    # else:
     # add (0,0) bloch diagonal block at front
     if len(cols) == len(rows) - 1:
         cols = np.insert(cols, 0, rows[0], axis=0)
