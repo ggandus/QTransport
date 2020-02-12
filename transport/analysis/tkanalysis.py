@@ -10,7 +10,10 @@ def get_external_internal(atoms, symbols=None):
     # Atoms to include in external and internal indices
     if symbols is None:
         symbols = list(set(atoms.symbols))
-        symbols.pop(symbols.index('H'))
+        try:
+            symbols.pop(symbols.index('H'))
+        except ValueError as e:
+            print(e)
     #
     symbols = list(symbols)
 

@@ -97,6 +97,7 @@ class TransportCalculator:
                                  'hc2': None,
                                  'sc1': None,
                                  'sc2': None,
+                                 'selfenergies': None,
                                  'box': None,
                                  'align_bf': None,
                                  'eta1': 1e-5,
@@ -152,6 +153,48 @@ class TransportCalculator:
         print('# Initializing calculator...', file=self.log)
 
         p = self.input_parameters
+
+        if p['selfenergies'] is None:
+            self.set_selfenergies(p)
+        else:
+            self.selfenergies = p['selfenergies']
+
+        self.set_greenfunction(p)
+
+        # box = p['box']
+        # if box is not None:
+        #     print('Using box probe!')
+        #     self.selfenergies.append(
+        #         BoxProbe(eta=box[0], a=box[1], b=box[2], energies=box[3],
+        #                  S=s_mm, T=0.3))
+
+
+
+        self.initialized = True
+
+    def set_greenfunction(self, p):
+
+        h_mm = p['h']
+        s_mm = p['s']
+        h1_ii = self.selfenergies[0].h_ii
+
+        align_bf = p['align_bf']
+        if align_bf is not None:
+            diff = ((h_mm[align_bf, align_bf] - h1_ii[align_bf, align_bf]) /
+                    s_mm[align_bf, align_bf])
+            print('# Aligning scat. H to left lead H. diff=', diff,
+                  file=self.log)
+            h_mm -= diff * s_mm
+
+        assert p['eta']>0.0
+        # setup scattering green function
+        self.greenfunction = GreenFunction(selfenergies=self.selfenergies,
+                                           H=h_mm,
+                                           S=s_mm,
+                                           eta=p['eta'])
+
+    def set_selfenergies(self, p):
+
         if p['s'] is None:
             p['s'] = np.identity(len(p['h']))
 
@@ -213,17 +256,17 @@ class TransportCalculator:
                 s2_im = np.zeros(h2_im.shape, complex)
                 p['sc2'] = s2_im
 
-        align_bf = p['align_bf']
-        if align_bf is not None:
-            diff = ((h_mm[align_bf, align_bf] - h1_ii[align_bf, align_bf]) /
-                    s_mm[align_bf, align_bf])
-            print('# Aligning scat. H to left lead H. diff=', diff,
-                  file=self.log)
-            h_mm -= diff * s_mm
+        # align_bf = p['align_bf']
+        # if align_bf is not None:
+        #     diff = ((h_mm[align_bf, align_bf] - h1_ii[align_bf, align_bf]) /
+        #             s_mm[align_bf, align_bf])
+        #     print('# Aligning scat. H to left lead H. diff=', diff,
+        #           file=self.log)
+        #     h_mm -= diff * s_mm
 
         # Setup lead self-energies
         # All infinitesimals must be > 0
-        assert np.all(np.array((p['eta'], p['eta1'], p['eta2'])) > 0.0)
+        assert np.all(np.array((p['eta1'], p['eta2'])) > 0.0)
         self.selfenergies = [LeadSelfEnergy((h1_ii, s1_ii),
                                             (h1_ij, s1_ij),
                                             (h1_im, s1_im),
@@ -232,20 +275,6 @@ class TransportCalculator:
                                             (h2_ij, s2_ij),
                                             (h2_im, s2_im),
                                             p['eta2'])]
-        box = p['box']
-        if box is not None:
-            print('Using box probe!')
-            self.selfenergies.append(
-                BoxProbe(eta=box[0], a=box[1], b=box[2], energies=box[3],
-                         S=s_mm, T=0.3))
-
-        # setup scattering green function
-        self.greenfunction = GreenFunction(selfenergies=self.selfenergies,
-                                           H=h_mm,
-                                           S=s_mm,
-                                           eta=p['eta'])
-
-        self.initialized = True
 
     def update(self):
         if self.uptodate:

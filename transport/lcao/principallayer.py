@@ -3,8 +3,10 @@ from scipy import linalg as la
 from collections import namedtuple
 # from gpaw.symmetry import Symmetry
 from ase.dft.kpoints import monkhorst_pack
+from ase import units
 from .tklcao import *
-from transport.tkgpaw import get_bf_centers, get_bfs_indices, flatten
+from transport.tkgpaw import get_bf_centers, get_bfs_indices, \
+                             flatten, initialize_calculator
 from transport.tools import rotate_matrix, dagger, get_subspace
 from transport.selfenergy import LeadSelfEnergy
 from transport.block import get_toeplitz
@@ -12,6 +14,10 @@ from transport.block import get_toeplitz
 class PrincipalLayer:
 
     def __init__(self, calc, direction='x'):
+
+        # Initialize calculator
+        initialize_calculator(calc)
+
         self.calc = calc
         self.direction = direction
 
@@ -26,6 +32,9 @@ class PrincipalLayer:
 
         if H_kMM is None:
             H_kMM, S_kMM = h_and_s(self.calc)
+            # Convert in Hartree units
+            H_kMM *= units.Hartree
+            # Align Fermi Level
             self.align_fermi(H_kMM, S_kMM)
 
         # Transport direction
