@@ -308,7 +308,7 @@ class PrincipalSelfEnergy(PrincipalLayer):
         # Selfenergies
         self.selfenergies = [LeadSelfEnergy((h_ii,s_ii),
                                             (h_ij,s_ij),
-                                            (h_ij,s_ij))
+                                            (h_ij,s_ij),eta=1e-5)
                              for h_ii, s_ii, h_ij, s_ij in zip(self.H_kii,
                                                                self.S_kii,
                                                                self.H_kij,
