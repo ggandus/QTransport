@@ -1,6 +1,6 @@
 import numpy as np
 from collections import deque, namedtuple, defaultdict
-from .tkgpaw import get_bfs_indices
+from .tk_gpaw import get_bfs_indices
 
 cutoff = 1e-4
 
