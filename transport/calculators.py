@@ -198,11 +198,11 @@ class TransportCalculator:
         # setup scattering green function
         self.greenfunction = GreenFunction(selfenergies=self.selfenergies,
                                            H=h_mm,
-                                           S=s_mm,
-                                           eta=p['eta'])
+                                           S=s_mm)
 
-        if align_bf is not None:
-            self.greenfunction.align_bf(align_bf)
+        self.greenfunction.set(align_bf=p['align_bf'],
+                               eta=p['eta'])
+        self.greenfunction.initialize()
 
     def set_selfenergies(self, p):
 

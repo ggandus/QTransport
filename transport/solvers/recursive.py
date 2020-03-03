@@ -43,20 +43,21 @@ def get_mat_lists(z, hs_list_ii, hs_list_ij, sigma_L=None, sigma_R=None):
     mat_list_ij = []
     mat_list_ji = []
 
-    h_list_ij, s_list_ij = self.hs_list_ij
+    h_list_ij, s_list_ij = hs_list_ij
     for h_ij, s_ij in zip(h_list_ij,
                           s_list_ij):
 
         mat_list_ij.append(z * s_ij - h_ij)
         mat_list_ji.append(z * s_ij.T.conj() - h_ij.T.conj())
 
-    h_list_ii, s_list_ii = self.hs_list_ii
+    h_list_ii, s_list_ii = hs_list_ii
     for h_ii, s_ii in zip(h_list_ii,
                           s_list_ii):
         mat_list_ii.append(z * s_ii - h_ii)
 
-    if sigma_L and sigma_R:
-        mat_list_ii[0]  -= sigma_L.retarded(energy)
-        mat_list_ii[-1] -= sigma_R.retarded(energy)
+    if sigma_L is not None:
+        mat_list_ii[0]  -= sigma_L
+    if sigma_R is not None:
+        mat_list_ii[-1] -= sigma_R
 
     return mat_list_ii, mat_list_ij, mat_list_ji

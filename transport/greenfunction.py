@@ -12,17 +12,18 @@ from .solvers.recursive import get_mat_lists, recursive_gf
 class GreenFunction(CoupledHamiltonian):
     """Equilibrium retarded Green function."""
 
-    def __init__(self, H, S=None, selfenergies=[], eta=1e-4):
+    def __init__(self, H, S=None, selfenergies=[], **kwargs):
         self.H = H
         self.S = S
         self.selfenergies = selfenergies
-        self.eta = eta
+        # self.eta = eta
         self.energy = None
         self.Ginv = np.empty(H.shape, complex)
 
         self.parameters = {'eta': 1e-5,
                            'align_bf': None}
         self.initialized = False
+        self.set(**kwargs)
 
     def set(self, **kwargs):
         for key in kwargs:
@@ -138,15 +139,14 @@ class GreenFunction(CoupledHamiltonian):
 
 class RecursiveGF(CoupledHamiltonian):
 
-    def __init__(self, H, S=None, selfenergies=[], eta=1e-4):
+    def __init__(self, H, S=None, selfenergies=[], **kwargs):
 
-        super().__init__(self, H, S, selfenergies)
+        super().__init__(H, S, selfenergies)
 
-        self.eta = eta
         self.energy = None
         self.g1N = None
 
-        self.parameters = {'eta': eta,
+        self.parameters = {'eta': 1e-5,
                            'calc': None,
                            'pl1': None,
                            'pl2': None,
@@ -154,6 +154,7 @@ class RecursiveGF(CoupledHamiltonian):
                            'align_bf': None}
 
         self.initialized = False
+        self.set(**kwargs)
 
     def set(self, **kwargs):
         for key in kwargs:
@@ -176,11 +177,16 @@ class RecursiveGF(CoupledHamiltonian):
         if self.initialized:
             return
 
-        p = self.parameters()
+        p = self.parameters
         align_bf = p['align_bf']
         calc = p['calc']
         pl1 = p['pl1']
-        pl1 = p['pl2']
+        pl2 = p['pl2']
+
+        if pl1 is None:
+            pl1 = self.selfenergies[0].natoms
+        if pl2 is None:
+            pl2 = pl1
 
         #Set eta
         self.eta = p['eta']
@@ -195,11 +201,11 @@ class RecursiveGF(CoupledHamiltonian):
                                            pl1, pl2, cutoff)
 
         #Note h_im[:,:pl1]=h_ij for Left and h_im[:,-pl2:]=h_ij for Right
-        for pl, selfenergy in zip((pl1,pl2),selfenergies[:2]):
-            dtype = selfenergy.sigma_mm.dtype
+        for selfenergy in self.selfenergies:
             selfenergy.h_im = selfenergy.h_ij
             selfenergy.s_im = selfenergy.s_ij
-            selfenergy.sigma_mm = np.empty((pl,pl), dtype=dtype)
+            selfenergy.sigma_mm = np.empty((selfenergy.nbf_i, selfenergy.nbf_i),
+                                            dtype=selfenergy.sigma_mm.dtype)
 
         self.initialized = True
 
@@ -215,7 +221,7 @@ class RecursiveGF(CoupledHamiltonian):
             mat_lists = get_mat_lists(z, self.hs_list_ii, self.hs_list_ij,
                                       sigma_L, sigma_R)
 
-            self.g1N = recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji)
+            self.g1N = recursive_gf(*mat_lists)#_ii, mat_list_ij, mat_list_ji)
 
         return self.g1N
 
@@ -225,11 +231,11 @@ class RecursiveGF(CoupledHamiltonian):
             T_e = np.empty(len(energies))
 
         for e, energy in enumerate(energies):
-            Ginv_mm = self.retarded(energy, inverse=True)
-            lambda1_mm = self.selfenergies[0].get_lambda(energy)
-            lambda2_mm = self.selfenergies[1].get_lambda(energy)
-            a_mm = linalg.solve(Ginv_mm, lambda1_mm)
-            b_mm = linalg.solve(dagger(Ginv_mm), lambda2_mm)
-            T_e[e] = np.trace(np.dot(a_mm, b_mm)).real
+
+            gr_1N = self.get_g1N(energy)
+            ga_1N = np.conj(gr_1N.T)
+            lambda1_11 = self.selfenergies[0].get_lambda(energy)
+            lambda2_NN = self.selfenergies[1].get_lambda(energy)
+            T_e[e] = np.trace(lambda1_11.dot(gr_1N).dot(lambda2_NN).dot(ga_1N)).real
 
         return T_e

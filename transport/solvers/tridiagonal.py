@@ -116,7 +116,7 @@ def get_tridiagonal_nodes(calc, h, s, pl1, pl2=None, cutoff=cutoff):
     nodes = [0] # N+1 nodes
     for u0 in u:
         indices = _get_indices(graph, u0)
-        bfs_i = get_bfs_indices(calc, np.max(indices))
+        bfs_i = get_bfs_indices(calc, int(np.max(indices)))
         nodes.append(np.max(bfs_i)+1)
 
     return nodes

@@ -43,7 +43,7 @@ def get_bfs_indices(calc, a, method='extend'):
     """
     if calc.wfs.S_qMM is None:
         calc.wfs.set_positions(calc.spos_ac)
-    if isinstance(a, int):
+    if isinstance(a, (int,np.int32,np.int64)):
         a = [a]
     Mvalues = []
     Mattr = getattr(Mvalues, method)
