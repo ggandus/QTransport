@@ -160,7 +160,7 @@ class TransportCalculator:
         else:
             self.selfenergies = p['selfenergies']
             # Initialize selfenergies
-            for eta, selfenergy in zip([p['eta1'], p['eta2']], 
+            for eta, selfenergy in zip([p['eta1'], p['eta2']],
                                         self.selfenergies):
                 selfenergy.set(eta=eta)
                 selfenergy.initialize()
@@ -192,15 +192,7 @@ class TransportCalculator:
 
         h_mm = p['h']
         s_mm = p['s']
-        # h1_ii = self.selfenergies[0].h_ii
-        #
         align_bf = p['align_bf']
-        # if align_bf is not None:
-        #     diff = ((h_mm[align_bf, align_bf] - h1_ii[align_bf, align_bf]) /
-        #             s_mm[align_bf, align_bf])
-        #     print('# Aligning scat. H to left lead H. diff=', diff,
-        #           file=self.log)
-        #     h_mm -= diff * s_mm
 
         assert p['eta']>0.0
         # setup scattering green function
@@ -302,39 +294,40 @@ class TransportCalculator:
         p = self.input_parameters
         self.energies = p['energies']
         nepts = len(self.energies)
-        nchan = p['eigenchannels']
-        pdos = p['pdos']
+        # nchan = p['eigenchannels']
+        # pdos = p['pdos']
         self.T_e = np.empty(nepts)
-        if p['dos']:
-            self.dos_e = np.empty(nepts)
-        if pdos != []:
-            self.pdos_ne = np.empty((len(pdos), nepts))
-        if nchan > 0:
-            self.eigenchannels_ne = np.empty((nchan, nepts))
+        self.greenfunction.get_transmission(self.energies, self.T_e)
+        # if p['dos']:
+        #     self.dos_e = np.empty(nepts)
+        # if pdos != []:
+        #     self.pdos_ne = np.empty((len(pdos), nepts))
+        # if nchan > 0:
+        #     self.eigenchannels_ne = np.empty((nchan, nepts))
 
-        for e, energy in enumerate(self.energies):
-            Ginv_mm = self.greenfunction.retarded(energy, inverse=True)
-            lambda1_mm = self.selfenergies[0].get_lambda(energy)
-            lambda2_mm = self.selfenergies[1].get_lambda(energy)
-            a_mm = linalg.solve(Ginv_mm, lambda1_mm)
-            b_mm = linalg.solve(dagger(Ginv_mm), lambda2_mm)
-            T_mm = np.dot(a_mm, b_mm)
-            if nchan > 0:
-                t_n = linalg.eigvals(T_mm).real
-                self.eigenchannels_ne[:, e] = np.sort(t_n)[-nchan:]
-                self.T_e[e] = np.sum(t_n)
-            else:
-                self.T_e[e] = np.trace(T_mm).real
-
-            print(energy, self.T_e[e], file=self.log)
-            self.log.flush()
-
-            if p['dos']:
-                self.dos_e[e] = self.greenfunction.dos(energy)
-
-            if pdos != []:
-                self.pdos_ne[:, e] = np.take(self.greenfunction.pdos(energy),
-                                             pdos)
+        # for e, energy in enumerate(self.energies):
+        #     Ginv_mm = self.greenfunction.retarded(energy, inverse=True)
+        #     lambda1_mm = self.selfenergies[0].get_lambda(energy)
+        #     lambda2_mm = self.selfenergies[1].get_lambda(energy)
+        #     a_mm = linalg.solve(Ginv_mm, lambda1_mm)
+        #     b_mm = linalg.solve(dagger(Ginv_mm), lambda2_mm)
+        #     T_mm = np.dot(a_mm, b_mm)
+        #     if nchan > 0:
+        #         t_n = linalg.eigvals(T_mm).real
+        #         self.eigenchannels_ne[:, e] = np.sort(t_n)[-nchan:]
+        #         self.T_e[e] = np.sum(t_n)
+        #     else:
+        #         self.T_e[e] = np.trace(T_mm).real
+        #
+        #     print(energy, self.T_e[e], file=self.log)
+        #     self.log.flush()
+        #
+        #     if p['dos']:
+        #         self.dos_e[e] = self.greenfunction.dos(energy)
+        #
+        #     if pdos != []:
+        #         self.pdos_ne[:, e] = np.take(self.greenfunction.pdos(energy),
+        #                                      pdos)
 
         self.uptodate = True
 

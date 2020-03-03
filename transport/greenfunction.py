@@ -1,6 +1,8 @@
 import numpy as np
-from functools import lru_cache
+from numpy import linalg
+# from functools import lru_cache
 from .coupledhamiltonian import CoupledHamiltonian
+from .tools import dagger
 
 #Recursive GreenFunction helpers
 from .solvers.tridiagonal   import tridiagonalize, cutoff
@@ -118,6 +120,22 @@ class GreenFunction(CoupledHamiltonian):
         return h_pp, s_pp, c_mm
 
 
+    def get_transmission(self, energies, T_e):
+
+        if T_e is None:
+            T_e = np.empty(len(energies))
+
+        for e, energy in enumerate(energies):
+            Ginv_mm = self.retarded(energy, inverse=True)
+            lambda1_mm = self.selfenergies[0].get_lambda(energy)
+            lambda2_mm = self.selfenergies[1].get_lambda(energy)
+            a_mm = linalg.solve(Ginv_mm, lambda1_mm)
+            b_mm = linalg.solve(dagger(Ginv_mm), lambda2_mm)
+            T_e[e] = np.trace(np.dot(a_mm, b_mm)).real
+
+        return T_e
+
+
 class RecursiveGF(CoupledHamiltonian):
 
     def __init__(self, H, S=None, selfenergies=[], eta=1e-4):
@@ -157,7 +175,7 @@ class RecursiveGF(CoupledHamiltonian):
         '''
         if self.initialized:
             return
-            
+
         p = self.parameters()
         align_bf = p['align_bf']
         calc = p['calc']
@@ -200,3 +218,18 @@ class RecursiveGF(CoupledHamiltonian):
             self.g1N = recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji)
 
         return self.g1N
+
+    def get_transmission(self, energies, T_e):
+
+        if T_e is None:
+            T_e = np.empty(len(energies))
+
+        for e, energy in enumerate(energies):
+            Ginv_mm = self.retarded(energy, inverse=True)
+            lambda1_mm = self.selfenergies[0].get_lambda(energy)
+            lambda2_mm = self.selfenergies[1].get_lambda(energy)
+            a_mm = linalg.solve(Ginv_mm, lambda1_mm)
+            b_mm = linalg.solve(dagger(Ginv_mm), lambda2_mm)
+            T_e[e] = np.trace(np.dot(a_mm, b_mm)).real
+
+        return T_e
