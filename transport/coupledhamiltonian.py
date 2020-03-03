@@ -8,6 +8,16 @@ class CoupledHamiltonian:
         self.S = S
         self.selfenergies = selfenergies
 
+    def align_bf(self, align_bf):
+        h_mm = self.H
+        s_mm = self.S
+        h1_ii = self.selfenergies[0].h_ii
+        if align_bf is not None:
+            diff = ((h_mm[align_bf, align_bf] - h1_ii[align_bf, align_bf]) /
+                    s_mm[align_bf, align_bf])
+            # print('# Aligning scat. H to left lead H. diff=', diff)
+            h_mm -= diff * s_mm
+
     def apply_rotation(self, c_mm):
           h_mm = self.H
           s_mm = self.S

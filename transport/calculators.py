@@ -98,6 +98,7 @@ class TransportCalculator:
                                  'sc1': None,
                                  'sc2': None,
                                  'selfenergies': None,
+                                 'greenfunction': None,
                                  'box': None,
                                  'align_bf': None,
                                  'eta1': 1e-5,
@@ -158,8 +159,23 @@ class TransportCalculator:
             self.set_selfenergies(p)
         else:
             self.selfenergies = p['selfenergies']
+            # Initialize selfenergies
+            for eta, selfenergy in zip([p['eta1'], p['eta2']], 
+                                        self.selfenergies):
+                selfenergy.set(eta=eta)
+                selfenergy.initialize()
+                # selfenergy.eta = eta
 
-        self.set_greenfunction(p)
+        if p['greenfunction'] is None:
+            self.set_greenfunction(p)
+        else:
+            self.greenfunction = p['greenfunction']
+            # Initialize greenfunction
+            self.greenfunction.set(align_bf=p['align_bf'],
+                                   eta=p['eta'])
+            self.greenfunction.initialize()
+            # self.greenfunction.align_bf(align_bf)
+
 
         # box = p['box']
         # if box is not None:
@@ -176,15 +192,15 @@ class TransportCalculator:
 
         h_mm = p['h']
         s_mm = p['s']
-        h1_ii = self.selfenergies[0].h_ii
-
+        # h1_ii = self.selfenergies[0].h_ii
+        #
         align_bf = p['align_bf']
-        if align_bf is not None:
-            diff = ((h_mm[align_bf, align_bf] - h1_ii[align_bf, align_bf]) /
-                    s_mm[align_bf, align_bf])
-            print('# Aligning scat. H to left lead H. diff=', diff,
-                  file=self.log)
-            h_mm -= diff * s_mm
+        # if align_bf is not None:
+        #     diff = ((h_mm[align_bf, align_bf] - h1_ii[align_bf, align_bf]) /
+        #             s_mm[align_bf, align_bf])
+        #     print('# Aligning scat. H to left lead H. diff=', diff,
+        #           file=self.log)
+        #     h_mm -= diff * s_mm
 
         assert p['eta']>0.0
         # setup scattering green function
@@ -192,6 +208,9 @@ class TransportCalculator:
                                            H=h_mm,
                                            S=s_mm,
                                            eta=p['eta'])
+
+        if align_bf is not None:
+            self.greenfunction.align_bf(align_bf)
 
     def set_selfenergies(self, p):
 

@@ -1,6 +1,9 @@
 import numpy as np
 from scipy import linalg as la
 
+#Cutoff for cutting block matrices
+from .tridiagonal import cutoff
+
 def left_div(a, b):
     # Solve ax=b
     res, resid, rank, s = la.lstsq(a, b ,cond=-1)
@@ -34,9 +37,26 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji):
 
     return gr_list_1i[-1]
 
-    # gr_list_ii[-1]
-    # # Upward recursion
-    # for q in range(N-1, -1, -1):
-    #     gr_list_ii
-    #
-    # return gr_list_ii, gr_list_1i
+def get_mat_lists(z, hs_list_ii, hs_list_ij, sigma_L=None, sigma_R=None):
+
+    mat_list_ii = []
+    mat_list_ij = []
+    mat_list_ji = []
+
+    h_list_ij, s_list_ij = self.hs_list_ij
+    for h_ij, s_ij in zip(h_list_ij,
+                          s_list_ij):
+
+        mat_list_ij.append(z * s_ij - h_ij)
+        mat_list_ji.append(z * s_ij.T.conj() - h_ij.T.conj())
+
+    h_list_ii, s_list_ii = self.hs_list_ii
+    for h_ii, s_ii in zip(h_list_ii,
+                          s_list_ii):
+        mat_list_ii.append(z * s_ii - h_ii)
+
+    if sigma_L and sigma_R:
+        mat_list_ii[0]  -= sigma_L.retarded(energy)
+        mat_list_ii[-1] -= sigma_R.retarded(energy)
+
+    return mat_list_ii, mat_list_ij, mat_list_ji

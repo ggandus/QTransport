@@ -297,14 +297,38 @@ class PrincipalSelfEnergy(PrincipalLayer):
         super().__init__(calc, direction)
 
         self.scatt = scatt
-        self.eta = 1e-5
+        # self.eta = 1e-5
         self.energy = None
-        self.bias = 0
+        # self.bias = 0
         self.id = id
+
+        self.parameters = {'eta': 1e-5,
+                           'bias': 0}
+
+        self.initialized = False
+
+    def set(self, **kwargs):
+        for key in kwargs:
+            if key in ['eta','scatt', 'bias', 'id']:
+                self.initialized = False
+                break
+            elif key not in self.parameters:
+                raise KeyError('%r not a vaild keyword' % key)
+
+        self.parameters.update(kwargs)
 
     def initialize(self, H_kMM=None, S_kMM=None, direction='x'):
 
+        if self.initialized:
+            return
+
         super().initialize(H_kMM, S_kMM, direction)
+
+        p = self.parameters
+
+        #Set eta and bias
+        self.eta = p['eta']
+        self.bias = p['bias']
 
         self.remove_pbc(self.H_kij)
         self.remove_pbc(self.S_kij)
@@ -354,6 +378,8 @@ class PrincipalSelfEnergy(PrincipalLayer):
 
         self.nbf_m = nbf_m
         self.nbf_i = nbf_i
+
+        self.initialized = True
 
     def retarded(self, energy):
         """Return self-energy (sigma) evaluated at specified energy."""
