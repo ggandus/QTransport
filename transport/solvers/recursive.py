@@ -20,7 +20,8 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji):
     gr_list_1i = [None for _ in range(N)]
 
     # Initialize retarded ginv_11 = (eS-H-Sigma)_11
-    gr_list_ii[0] = left_div(mat_list_ii[0], np.eye(mat_shapes[0][0]))
+    gr_list_ii[0] = la.inv(mat_list_ii[0])
+                    #left_div(mat_list_ii[0], np.eye(mat_shapes[0][0]))
     gr_list_1i[0] = gr_list_ii[0]
 
     # Downward recursion
@@ -30,8 +31,9 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji):
         tau_ji = mat_list_ji[q - 1]
         a_jj = tau_ji.dot(gr_ii.dot(tau_ij))
         # Diagonal
-        gr_list_ii[q] = left_div(mat_list_ii[q] - a_jj,
-                                 np.eye(mat_shapes[q][0]))
+        gr_list_ii[q] = la.inv(mat_list_ii[q] - a_jj)
+                        #left_div(mat_list_ii[q] - a_jj,
+                        #np.eye(mat_shapes[q][0]))
         # First row
         gr_list_1i[q] = gr_list_1i[q - 1].dot(tau_ij.dot(gr_list_ii[q]))
 

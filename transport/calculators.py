@@ -267,16 +267,6 @@ class TransportCalculator:
                 s2_im = np.zeros(h2_im.shape, complex)
                 p['sc2'] = s2_im
 
-        # align_bf = p['align_bf']
-        # if align_bf is not None:
-        #     diff = ((h_mm[align_bf, align_bf] - h1_ii[align_bf, align_bf]) /
-        #             s_mm[align_bf, align_bf])
-        #     print('# Aligning scat. H to left lead H. diff=', diff,
-        #           file=self.log)
-        #     h_mm -= diff * s_mm
-
-        # Setup lead self-energies
-        # All infinitesimals must be > 0
         assert np.all(np.array((p['eta1'], p['eta2'])) > 0.0)
         self.selfenergies = [LeadSelfEnergy((h1_ii, s1_ii),
                                             (h1_ij, s1_ij),
@@ -287,6 +277,18 @@ class TransportCalculator:
                                             (h2_im, s2_im),
                                             p['eta2'])]
 
+        # align_bf = p['align_bf']
+        # if align_bf is not None:
+        #     diff = ((h_mm[align_bf, align_bf] - h1_ii[align_bf, align_bf]) /
+        #             s_mm[align_bf, align_bf])
+        #     print('# Aligning scat. H to left lead H. diff=', diff,
+        #           file=self.log)
+        #     h_mm -= diff * s_mm
+
+        # Setup lead self-energies
+        # All infinitesimals must be > 0
+
+
     def update(self):
         if self.uptodate:
             return
@@ -294,10 +296,13 @@ class TransportCalculator:
         p = self.input_parameters
         self.energies = p['energies']
         nepts = len(self.energies)
-        # nchan = p['eigenchannels']
-        # pdos = p['pdos']
-        self.T_e = np.empty(nepts)
+        self.T_e = np.zeros(nepts)
         self.greenfunction.get_transmission(self.energies, self.T_e)
+
+
+        # pdos = p['pdos']
+        # nchan = p['eigenchannels']
+
         # if p['dos']:
         #     self.dos_e = np.empty(nepts)
         # if pdos != []:
