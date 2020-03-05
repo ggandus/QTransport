@@ -124,7 +124,7 @@ class GreenFunction(CoupledHamiltonian):
     def get_transmission(self, energies, T_e):
 
         if T_e is None:
-            T_e = np.empty(len(energies))
+            T_e = np.zeros(len(energies))
 
         for e, energy in enumerate(energies):
             Ginv_mm = self.retarded(energy, inverse=True)
@@ -228,7 +228,7 @@ class RecursiveGF(CoupledHamiltonian):
     def get_transmission(self, energies, T_e):
 
         if T_e is None:
-            T_e = np.empty(len(energies))
+            T_e = np.zeros(len(energies))
 
         for e, energy in enumerate(energies):
 

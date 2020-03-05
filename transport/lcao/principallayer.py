@@ -292,7 +292,7 @@ class PrincipalLayer:
 
 class PrincipalSelfEnergy(PrincipalLayer):
 
-    def __init__(self, calc, direction='x', scatt=None, id=0):
+    def __init__(self, calc, direction='x', scatt=None, id=0, **kwargs):
 
         super().__init__(calc, direction)
 
@@ -306,6 +306,7 @@ class PrincipalSelfEnergy(PrincipalLayer):
                            'bias': 0}
 
         self.initialized = False
+        self.set(**kwargs)
 
     def set(self, **kwargs):
         for key in kwargs:

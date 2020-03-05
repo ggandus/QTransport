@@ -8,8 +8,12 @@ import scipy.linalg as sla
 import ase.units as units
 
 from gpaw.utilities.tools import tri2full
+from .tklcao import h_and_s
+from transport.tkgpaw import subdiagonalize_atoms
+from transport.tools import subdiagonalize, rotate_matrix, order_diagonal, cutcoupling
+from transport.coupledhamiltonian import CoupledHamiltonian
 
-class TightBinding:
+class TightBinding(CoupledHamiltonian):
     """Simple class for tight-binding calculations."""
 
     def __init__(self, atoms, calc):
@@ -142,35 +146,41 @@ class TightBinding:
 
         return np.array(A_NxMM)
 
-    def h_and_s(self):
+    def set_h_and_s(self, H_kMM=None, S_kMM=None):
         """Return LCAO Hamiltonian and overlap matrix in real-space."""
 
-        # Extract Bloch Hamiltonian and overlap matrix
-        H_kMM = []
-        S_kMM = []
+        # # Extract Bloch Hamiltonian and overlap matrix
+        # H_kMM = []
+        # S_kMM = []
+        #
+        # h = self.calc.hamiltonian
+        # wfs = self.calc.wfs
+        # kpt_u = wfs.kpt_u
+        #
+        # for kpt in kpt_u:
+        #     H_MM = wfs.eigensolver.calculate_hamiltonian_matrix(h, wfs, kpt)
+        #     S_MM = wfs.S_qMM[kpt.q]
+        #     #XXX Converting to full matrices here
+        #     tri2full(H_MM)
+        #     tri2full(S_MM)
+        #     H_kMM.append(H_MM * units.Hartree) # convert to eV
+        #     S_kMM.append(S_MM)
+        #
+        # # Convert to arrays
+        # H_kMM = np.array(H_kMM)
+        # S_kMM = np.array(S_kMM)
 
-        h = self.calc.hamiltonian
-        wfs = self.calc.wfs
-        kpt_u = wfs.kpt_u
+        if H_kMM is None:
+            H_kMM, S_kMM = h_and_s(self.calc)
+            # Convert in Hartree units
+            H_kMM *= units.Hartree
+            # Align Fermi Level
+            H_kMM -= self.calc.get_fermi_level() * S_kMM
 
-        for kpt in kpt_u:
-            H_MM = wfs.eigensolver.calculate_hamiltonian_matrix(h, wfs, kpt)
-            S_MM = wfs.S_qMM[kpt.q]
-            #XXX Converting to full matrices here
-            tri2full(H_MM)
-            tri2full(S_MM)
-            H_kMM.append(H_MM * units.Hartree) # convert to eV
-            S_kMM.append(S_MM)
+        self.H_NMM = self.bloch_to_real_space(H_kMM)
+        self.S_NMM = self.bloch_to_real_space(S_kMM)
 
-        # Convert to arrays
-        H_kMM = np.array(H_kMM)
-        S_kMM = np.array(S_kMM)
-        H_kMM -= self.calc.get_fermi_level() * S_kMM
-
-        H_NMM = self.bloch_to_real_space(H_kMM)
-        S_NMM = self.bloch_to_real_space(S_kMM)
-
-        return H_NMM, S_NMM
+        # return self.H_NMM, self.S_NMM
 
     def band_structure(self, path_kc, blochstates=False):
         """Calculate dispersion along a path in the Brillouin zone.
@@ -187,7 +197,9 @@ class TightBinding:
         """
 
         # Real-space matrices
-        self.H_NMM, self.S_NMM = self.h_and_s()
+        if not hasattr(self, 'H_NMM'):
+            self.set_h_and_s()
+        # self.H_NMM, self.S_NMM = self.h_and_s()
 
         assert self.H_NMM is not None
         assert self.S_NMM is not None
@@ -226,3 +238,44 @@ class TightBinding:
             return eps_kn, np.array(psi_kn)
 
         return eps_kn
+
+# Aliases for compatibility with CoupledHamiltonian
+
+    @property
+    def H(self):
+        return self.H_NMM[0]
+    @property
+    def S(self):
+        return self.S_NMM[0]
+    @H.setter
+    def H(self, H):
+        self.H_NMM[0] = H
+    @S.setter
+    def S(self, S):
+        self.S_NMM[0] = S
+
+    def apply_rotation(self, c_mm):
+        for h_mm, s_mm in zip(self.H_NMM, self.S_NMM):
+            h_mm[:] = rotate_matrix(h_mm, c_mm)
+            s_mm[:] = rotate_matrix(s_mm, c_mm)
+
+    def take_bfs(self, bfs, apply=False):
+        bfs = np.array(bfs)
+        nbf = len(bfs)
+        M = self.H_NMM.shape[-1]
+        N = np.prod(self.N_c)
+        # Rotation matrix
+        c_mm = np.eye(M).take(bfs,1)
+        #
+        H_NMM = np.empty((N,nbf,nbf),dtype=self.H_NMM.dtype)
+        S_NMM = np.empty((N,nbf,nbf),dtype=self.S_NMM.dtype)
+        for R, (h_mm, s_mm) in enumerate(zip(self.H_NMM, self.S_NMM)):
+            H_NMM[R] = rotate_matrix(h_mm, c_mm)
+            S_NMM[R] = rotate_matrix(s_mm, c_mm)
+
+        if apply:
+            self.H_NMM = H_NMM
+            self.S_NMM = S_NMM
+            return
+
+        return H_NMM, S_NMM, c_mm
