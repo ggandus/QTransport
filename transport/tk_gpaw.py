@@ -78,6 +78,19 @@ def subdiagonalize_atoms(calc, h_ii, s_ii, a=None):
     U_mm = block_diag(*U_mm)
     return U_mm, e_aj
 
+def subdiagonalize_blocks(calc, h_ii, s_ii, a=None):
+    """Get rotation matrix for subdiagonalization of given(all) atoms."""
+    from scipy.linalg import block_diag
+    U_mm = []
+    e_aj = []
+    for a0 in a:
+        bfs = get_bfs_indices(calc, a0)
+        v_jj, e_j = get_orthonormal_subspace(h_ii,s_ii,bfs)
+        U_mm.append(v_jj)
+        e_aj.append(e_j)
+    U_mm = block_diag(*U_mm)
+    return U_mm, e_aj
+
 def get_bf_centers(atoms, basis=None):
 
     from ase.calculators.singlepoint import SinglePointCalculator
@@ -156,20 +169,6 @@ def get_orthogonal_subspaces(calc, h_MM, s_MM, a=None, cutoff=np.inf, orthogonal
     bfs_m = [bfs_imp[i] for i, eigval in enumerate(flatten(e_aj)) if abs(eigval)<cutoff]
     bfs_i = list(np.setdiff1d(range(nbf),bfs_m))
     return extract_orthogonal_subspaces(h_MM, s_MM, bfs_m, bfs_i, c_MM, orthogonal)
-
-    # U1 = get_U1(bfs_m, bfs_i, c_MM, apply=True) # Modifies bfs_m, bfs_i
-    # h1_MM = rotate_matrix(h_MM,U1)
-    # s1_MM = rotate_matrix(s_MM,U1)
-    # """If orthogonal is True set s_im to zeros."""
-    # if orthogonal:
-    #     U2 = get_U2(s1_MM, bfs_m, bfs_i)
-    #     h2_MM = rotate_matrix(h_MM, U1.dot(U2))
-    #     s2_MM = rotate_matrix(s_MM, U1.dot(U2))
-    # else:
-    #     h2_MM = h1_MM
-    #     s2_MM = s1_MM
-    # return get_mm_ii_im(h2_MM, s2_MM, bfs_m, bfs_i)
-
 
 def get_ll_mm_rr(H, S, nbf_l, nbf_m, nbf_r):
     rng_l = list(range(nbf_l))
