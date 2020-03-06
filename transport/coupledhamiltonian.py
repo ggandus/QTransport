@@ -1,5 +1,6 @@
 import numpy as np
-from .tools import subdiagonalize, rotate_matrix, dagger, order_diagonal, cutcoupling
+from .tools import subdiagonalize, rotate_matrix, dagger, \
+                   order_diagonal, cutcoupling, get_subspace
 
 class CoupledHamiltonian:
 
@@ -94,3 +95,69 @@ class CoupledHamiltonian:
           return
 
       return ht_mm, st_mm, c_mm
+
+    def get_activespace(self, calc, a, key=lambda x: abs(x)<np.inf, orthogonal=True, inverse=False):
+        '''
+            key     := Apply condition to eigenvalues of subdiagonalized atoms.
+            inverse := Get embedding instead. Put activespace in selfenergy
+        '''
+        from .internalselfenergy import InternalSelfEnergy
+        from .tk_gpaw import subdiagonalize_atoms, get_bfs_indices, \
+                             extract_orthogonal_subspaces, flatten
+
+        h_mm = self.H
+        s_mm = self.S
+        nbf = h_mm.shape[-1]
+
+        c_MM, e_aj = subdiagonalize_atoms(calc, h_mm, s_mm, a)
+        bfs_imp = get_bfs_indices(calc, a)
+        # Active space
+        bfs_m = [bfs_imp[i] for i,
+                                eigval in enumerate(flatten(e_aj))
+                 if key(eigval)]
+        # Embedding
+        bfs_i = list(np.setdiff1d(range(nbf),bfs_m))
+        nbf_i = len(bfs_i)
+
+        hs_mm, hs_ii, hs_im =  extract_orthogonal_subspaces(h_mm,
+                                                            s_mm,
+                                                            bfs_m.copy(), # Do not modify
+                                                            bfs_i.copy(), # Do not modify
+                                                            c_MM,
+                                                            orthogonal)
+
+        # Reduce h_im, s_im
+        for selfenergy in self.selfenergies:
+            try:
+                sigma_mm = np.empty((nbf_i,nbf_i), complex)
+                h_im = selfenergy.h_im.take(bfs_i, axis=1)
+                s_im = selfenergy.s_im.take(bfs_i, axis=1)
+            except IndexError:
+                print('selfenergies already ok!')
+            else:
+                selfenergy.h_im = h_im
+                selfenergy.s_im = s_im
+                selfenergy.sigma_mm = sigma_mm
+
+        if inverse: #Take embedding instead. Put activespace in embedding
+            #Activespace selfenergy
+            hs_mi = tuple(hs_im[i].T.conj() for i in range(2))
+            selfenergy = InternalSelfEnergy(hs_mm, hs_mi)
+
+            if hasattr(self, 'Ginv'):
+                self.Ginv = np.empty(hs_ii[0].shape, complex)
+
+            self.__init__(hs_ii[0], hs_ii[1], self.selfenergies+[selfenergy])
+
+            return e_aj
+
+        #Embedding selfenergy
+        selfenergy = InternalSelfEnergy(hs_ii, hs_im,
+                                        selfenergies=self.selfenergies)
+
+        if hasattr(self, 'Ginv'):
+            self.Ginv = np.empty(hs_mm[0].shape, complex)
+
+        self.__init__(hs_mm[0], hs_mm[1], [selfenergy])
+
+        return e_aj
