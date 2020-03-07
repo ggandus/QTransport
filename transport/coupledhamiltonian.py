@@ -100,11 +100,13 @@ class CoupledHamiltonian:
 
       return ht_mm, st_mm, c_mm
 
-    def take_bfs_activespace(self, calc, a, key=lambda x: abs(x)<np.inf, cutoff=np.inf):
+    def take_bfs_activespace(self, calc, a, key=lambda x: abs(x)<np.inf,
+                             cutoff=np.inf, include=False, orthogonal=True):
         '''
             key     := Apply condition to eigenvalues of subdiagonalized atoms.
             cutoff  := Cutoff for effective embedding to incudle in active space,
                        form subdiagonalized [a] orbitals.
+            include := include cut orbitlas into selfenergy embedding.
         '''
         h_mm = self.H
         s_mm = self.S
@@ -149,6 +151,33 @@ class CoupledHamiltonian:
         else:
             h_imp = get_subspace(self.H, bfs_m)
             s_imp = get_subspace(self.S, bfs_m)
+
+
+        if include:
+            from .internalselfenergy import InternalSelfEnergy
+            #Subdiagonalized space of [a]
+            h_mm = get_subspace(self.H, bfs_imp)
+            s_mm = get_subspace(self.S, bfs_imp)
+            #Indecixes in impurities [a]
+            bfs_not_m_imp = [i for i,
+                                   eigval in enumerate(flatten(e_aj))
+                             if not key(eigval)] #Take complementary
+            # Active space
+            bfs_m_imp = list(np.setdiff1d(np.arange(len(h_mm)),bfs_not_m_imp))
+            hs_mm, hs_ii, hs_im =  extract_orthogonal_subspaces(h_mm,
+                                                                s_mm,
+                                                                bfs_m_imp, #Modify
+                                                                bfs_not_m_imp, #Modify
+                                                                orthogonal=orthogonal)
+            #Embed rest of subdiagonalized orbitas (in [a]).
+            h_im = np.zeros((len(bfs_not_m),len(self.H)), complex)
+            s_im = np.zeros((len(bfs_not_m),len(self.H)), complex)
+            h_im[:,bfs_m] = hs_im[0]
+            s_im[:,bfs_m] = hs_im[1]
+            h_im.take(bfs_m_and_o_i, axis=1)
+            s_im.take(bfs_m_and_o_i, axis=1)
+            selfenergy = InternalSelfEnergy(hs_ii, (h_im, s_im)) #Coupling to leads is None!
+            self.selfenergies.append(selfenergy)
 
 
         #Take (effective) activespace

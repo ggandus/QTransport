@@ -144,7 +144,7 @@ def get_mm_ii_im(h_MM, s_MM, bfs_m, bfs_i):
     s_im = s_MM.take(bfs_i,axis=0).take(bfs_m,axis=1)
     return (h_mm, s_mm), (h_ii, s_ii), (h_im, s_im)
 
-def extract_orthogonal_subspaces(h_MM, s_MM, bfs_m, bfs_i, c_MM, orthogonal=True):
+def extract_orthogonal_subspaces(h_MM, s_MM, bfs_m, bfs_i, c_MM=None, orthogonal=True):
     U1 = get_U1(bfs_m, bfs_i, c_MM, apply=True) # Modifies bfs_m, bfs_i
     h1_MM = rotate_matrix(h_MM,U1)
     s1_MM = rotate_matrix(s_MM,U1)
