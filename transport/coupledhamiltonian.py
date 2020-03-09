@@ -100,6 +100,17 @@ class CoupledHamiltonian:
 
       return ht_mm, st_mm, c_mm
 
+    def subdiagonalize_atoms(self, calc, a=None, apply=False):
+        h_mm = self.H
+        s_mm = self.S
+        c_MM, e_aj = subdiagonalize_atoms(calc, h_mm, s_mm, a)
+        if apply:
+            #Apply subdiagonalization
+            self.apply_rotation(c_MM)
+            return
+        return c_MM, e_aj
+
+
     def take_bfs_activespace(self, calc, a, key=lambda x: abs(x)<np.inf,
                              cutoff=np.inf, include=False, orthogonal=True):
         '''
@@ -248,3 +259,28 @@ class CoupledHamiltonian:
         self.__init__(hs_mm[0], hs_mm[1], [selfenergy])
 
         return e_aj
+
+
+def set_pzd_carbons(calc, coupledhamiltonian):
+    '''This function takes the pz- and d- orbitals of a scattering region.
+    coupledhamiltonian can be either a CoupledHamiltonian or GreenFunction.'''
+    from transport.analysis.tk_analysis import get_external_internal
+    #
+    ext_C, int_C = get_external_internal(calc.atoms)
+
+    Ce = [3,6,10,12]
+    Ci = [3,6,10,11]
+
+    bfs_ext_i = get_bfs_indices(calc, ext_C, method='append')
+    bfs_int_i = get_bfs_indices(calc, int_C, method='append')
+
+    #Take pz- and d- orbitas
+    bfs_ext_pzd_i = np.array(bfs_ext_i)[:,Ce]
+    bfs_int_pzd_i = np.array(bfs_int_i)[:,Ci]
+
+    #Activespace pz- and d- orbitas
+    bfs_m = np.union1d(bfs_int_pzd_i, bfs_ext_pzd_i)
+    indices_C = np.union1d(ext_C, int_C)
+
+    coupledhamiltonian.subdiagonalize_atoms(calc, indices_C, apply=True)
+    coupledhamiltonian.take_bfs(bfs_m, apply=True)
