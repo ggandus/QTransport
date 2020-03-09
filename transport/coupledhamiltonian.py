@@ -261,12 +261,14 @@ class CoupledHamiltonian:
         return e_aj
 
 
-def set_pzd_carbons(calc, coupledhamiltonian):
+def set_pzd_carbons(calc, coupledhamiltonian, apply=True):
     '''This function takes the pz- and d- orbitals of a scattering region.
-    coupledhamiltonian can be either a CoupledHamiltonian or GreenFunction.'''
+    coupledhamiltonian can be either a CoupledHamiltonian or GreenFunction.
+    If apply is set to False, the indices of the pzd- orbitals are returned
+    instead. Note that this function modufies the '''
     from transport.analysis.tk_analysis import get_external_internal
     #
-    ext_C, int_C = get_external_internal(calc.atoms)
+    ext_C, int_C = get_external_internal(calc.atoms, 'C')
 
     Ce = [3,6,10,12]
     Ci = [3,6,10,11]
@@ -282,5 +284,47 @@ def set_pzd_carbons(calc, coupledhamiltonian):
     bfs_m = np.union1d(bfs_int_pzd_i, bfs_ext_pzd_i)
     indices_C = np.union1d(ext_C, int_C)
 
+    #Rotate scattering region
     coupledhamiltonian.subdiagonalize_atoms(calc, indices_C, apply=True)
-    coupledhamiltonian.take_bfs(bfs_m, apply=True)
+
+    if apply:
+        #Reduce matrix
+        coupledhamiltonian.take_bfs(bfs_m, apply=True)
+        return
+
+    return bfs_m
+
+def set_pz_d_embedding(calc, coupledhamiltonian, apply=True):
+    ''''''
+    from .internalselfenergy import InternalSelfEnergy
+
+    h_mm = coupledhamiltonian.H
+    s_mm = coupledhamiltonian.S
+    nbf = h_mm.shape[-1]
+
+    bfs_pzd = set_pzd_carbons(calc, coupledhamiltonian, apply=False)
+    bfs_pz  = bfs_pzd[::4]
+    bfs_d   = np.setdiff1d(bfs_pzd, bfs_pz)
+
+    #Pzd- subspace
+    h_pzd = get_subspace(h_mm, bfs_pzd)
+    s_pzd = get_subspace(s_mm, bfs_pzd)
+
+    #Pz- and d- indices in pzd- subspace
+    bfs_pzd_pz  = np.arange(0,len(bfs_pzd),4)
+    bfs_pzd_d   = np.setdiff1d(range(len(bfs_pzd)), bfs_pzd_pz)
+
+    hs_mm, hs_ii, hs_im =  extract_orthogonal_subspaces(h_pzd,
+                                                        s_pzd,
+                                                        bfs_pzd_pz, #Modify
+                                                        bfs_pzd_d, #Modify
+                                                        orthogonal=True)
+
+    selfenergy = InternalSelfEnergy(hs_ii, hs_im)
+
+    if apply:
+        coupledhamiltonian.take_bfs(bfs_pz, apply=True)
+        coupledhamiltonian.selfenergies.append(selfenergy)
+        return
+
+    return bfs_pz, selfenergy
