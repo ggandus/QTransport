@@ -320,7 +320,11 @@ def set_pz_d_embedding(calc, coupledhamiltonian, apply=True):
                                                         bfs_pzd_d, #Modify
                                                         orthogonal=True)
 
-    selfenergy = InternalSelfEnergy(hs_ii, hs_im)
+    h_im = np.zeros((len(bfs_d), nbf), dtype=complex)
+    s_im = np.zeros((len(bfs_d), nbf), dtype=complex)
+    h_im[:,bfs_pz] = hs_im[0]
+    s_im[:,bfs_pz] = hs_im[1]
+    selfenergy = InternalSelfEnergy(hs_ii, (h_im, s_im))
 
     if apply:
         coupledhamiltonian.take_bfs(bfs_pz, apply=True)
