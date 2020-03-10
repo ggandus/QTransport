@@ -185,8 +185,8 @@ class CoupledHamiltonian:
             s_im = np.zeros((len(bfs_not_m),len(self.H)), complex)
             h_im[:,bfs_m] = hs_im[0]
             s_im[:,bfs_m] = hs_im[1]
-            h_im.take(bfs_m_and_o_i, axis=1)
-            s_im.take(bfs_m_and_o_i, axis=1)
+            # h_im.take(bfs_m_and_o_i, axis=1)
+            # s_im.take(bfs_m_and_o_i, axis=1)
             selfenergy = InternalSelfEnergy(hs_ii, (h_im, s_im)) #Coupling to leads is None!
             self.selfenergies.append(selfenergy)
 
@@ -322,6 +322,58 @@ def set_pz_d_embedding(calc, coupledhamiltonian, apply=True):
 
     h_im = np.zeros((len(bfs_d), nbf), dtype=complex)
     s_im = np.zeros((len(bfs_d), nbf), dtype=complex)
+    h_im[:,bfs_pz] = hs_im[0]
+    s_im[:,bfs_pz] = hs_im[1]
+    selfenergy = InternalSelfEnergy(hs_ii, (h_im, s_im))
+
+    if apply:
+        coupledhamiltonian.take_bfs(bfs_pz, apply=True)
+        coupledhamiltonian.selfenergies.append(selfenergy)
+        return
+
+    return bfs_pz, selfenergy
+
+
+def set_pz_embed_rest(calc, coupledhamiltonian, apply=True):
+    '''This function takes the pz- and d- orbitals of a scattering region.
+    coupledhamiltonian can be either a CoupledHamiltonian or GreenFunction.
+    If apply is set to False, the indices of the pzd- orbitals are returned
+    instead. Note that this function modufies the '''
+    from .internalselfenergy import InternalSelfEnergy
+
+    h_mm = coupledhamiltonian.H
+    s_mm = coupledhamiltonian.S
+    nbf = h_mm.shape[-1]
+
+    #
+    indices_C = np.where(calc.atoms.symbols=='C')[0]
+
+    #Rotate scattering region
+    coupledhamiltonian.subdiagonalize_atoms(calc, indices_C, apply=True)
+
+    #Carbon atom basis function indices
+    bfs_C = np.array(get_bfs_indices(calc, indices_C, method='append'))
+    #Pz-
+    bfs_pz = bfs_C[:,3].flatten()
+    #Rest-
+    bfs_rest = np.setdiff1d(bfs_C, bfs_pz)
+
+    #Carbon- subspace
+    h_cc = get_subspace(h_mm, bfs_C.flatten())
+    s_cc = get_subspace(s_mm, bfs_C.flatten())
+
+    #Pz- and rest- indices in Carbon atoms subspace
+    bfs_C_pz = np.arange(3, bfs_C.size, bfs_C.shape[1])
+    bfs_C_rest  = np.setdiff1d(range(bfs_C.size), bfs_C_pz)
+
+    hs_mm, hs_ii, hs_im =  extract_orthogonal_subspaces(h_cc,
+                                                        s_cc,
+                                                        bfs_C_pz, #Modify
+                                                        bfs_C_rest, #Modify
+                                                        orthogonal=True)
+
+    h_im = np.zeros((len(bfs_C_rest), nbf), dtype=complex)
+    s_im = np.zeros((len(bfs_C_rest), nbf), dtype=complex)
     h_im[:,bfs_pz] = hs_im[0]
     s_im[:,bfs_pz] = hs_im[1]
     selfenergy = InternalSelfEnergy(hs_ii, (h_im, s_im))
