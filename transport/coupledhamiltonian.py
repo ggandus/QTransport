@@ -111,90 +111,90 @@ class CoupledHamiltonian:
         return c_MM, e_aj
 
 
-    def take_bfs_activespace(self, calc, a, key=lambda x: abs(x)<np.inf,
-                             cutoff=np.inf, include=False, orthogonal=True):
-        '''
-            key     := Apply condition to eigenvalues of subdiagonalized atoms.
-            cutoff  := Cutoff for effective embedding to incudle in active space,
-                       form subdiagonalized [a] orbitals.
-            include := include cut orbitlas into selfenergy embedding.
-        '''
-        h_mm = self.H
-        s_mm = self.S
-        nbf = h_mm.shape[-1]
-
-        c_MM, e_aj = subdiagonalize_atoms(calc, h_mm, s_mm, a)
-        bfs_imp = get_bfs_indices(calc, a)
-        # In [a] but not in active space
-        bfs_not_m = [bfs_imp[i] for i,
-                                    eigval in enumerate(flatten(e_aj))
-                     if not key(eigval)] #Take complementary
-        # Active space
-        bfs_m = list(np.setdiff1d(bfs_imp,bfs_not_m))
-        # o := orbitals other atoms not in [a]
-        bfs_m_and_o_i = list(np.setdiff1d(range(nbf),bfs_not_m))
-        nbfs_m_and_o = len(bfs_m_and_o_i)
-
-        #Apply subdiagonalization
-        self.apply_rotation(c_MM)
-
-        if cutoff<np.inf:
-            # h_imp = get_subspace(self.H, bfs_imp)
-            # s_imp = get_subspace(self.S, bfs_imp)
-            #Effective active space := activespace and effective embedding
-            bfs_eff_i = []
-            bfs_eff_imp = []
-            for bfm in bfs_m: # for each bfm (bfm := basis of active)
-                row_m_imp = abs(self.H[bfm,bfs_imp])
-                #Index of couplings in [a]
-                coupling  = np.where(row_m_imp>cutoff)[0]
-                bfs_eff_imp = np.union1d(bfs_eff_imp, coupling)
-                #Effective active embedding for bfm
-                bfs_emb_i = np.arange(self.H.shape[0])[bfs_imp][coupling]
-                #Effective activespace
-                bfs_eff_i = np.union1d(bfs_eff_i, bfs_emb_i)
-            #Unify with others
-            bfs_eff_i = bfs_eff_i.tolist()
-            bfs_m_and_o_i = np.union1d(bfs_eff_i, bfs_m_and_o_i).tolist()
-            #Modify activespace with effective active space
-            h_imp = get_subspace(self.H, bfs_eff_i)
-            s_imp = get_subspace(self.S, bfs_eff_i)
-        else:
-            h_imp = get_subspace(self.H, bfs_m)
-            s_imp = get_subspace(self.S, bfs_m)
-
-
-        if include:
-            from .internalselfenergy import InternalSelfEnergy
-            #Subdiagonalized space of [a]
-            h_mm = get_subspace(self.H, bfs_imp)
-            s_mm = get_subspace(self.S, bfs_imp)
-            #Indecixes in impurities [a]
-            bfs_not_m_imp = [i for i,
-                                   eigval in enumerate(flatten(e_aj))
-                             if not key(eigval)] #Take complementary
-            # Active space
-            bfs_m_imp = list(np.setdiff1d(np.arange(len(h_mm)),bfs_not_m_imp))
-            hs_mm, hs_ii, hs_im =  extract_orthogonal_subspaces(h_mm,
-                                                                s_mm,
-                                                                bfs_m_imp, #Modify
-                                                                bfs_not_m_imp, #Modify
-                                                                orthogonal=orthogonal)
-            #Embed rest of subdiagonalized orbitas (in [a]).
-            h_im = np.zeros((len(bfs_not_m),len(self.H)), complex)
-            s_im = np.zeros((len(bfs_not_m),len(self.H)), complex)
-            h_im[:,bfs_m] = hs_im[0]
-            s_im[:,bfs_m] = hs_im[1]
-            # h_im.take(bfs_m_and_o_i, axis=1)
-            # s_im.take(bfs_m_and_o_i, axis=1)
-            selfenergy = InternalSelfEnergy(hs_ii, (h_im, s_im)) #Coupling to leads is None!
-            self.selfenergies.append(selfenergy)
-
-
-        #Take (effective) activespace
-        self.take_bfs(bfs_m_and_o_i, apply=True)
-
-        return h_imp, s_imp
+    # def take_bfs_activespace(self, calc, a, key=lambda x: abs(x)<np.inf,
+    #                          cutoff=np.inf, include=False, orthogonal=True):
+    #     '''
+    #         key     := Apply condition to eigenvalues of subdiagonalized atoms.
+    #         cutoff  := Cutoff for effective embedding to incudle in active space,
+    #                    form subdiagonalized [a] orbitals.
+    #         include := include cut orbitlas into selfenergy embedding.
+    #     '''
+    #     h_mm = self.H
+    #     s_mm = self.S
+    #     nbf = h_mm.shape[-1]
+    #
+    #     c_MM, e_aj = subdiagonalize_atoms(calc, h_mm, s_mm, a)
+    #     bfs_imp = get_bfs_indices(calc, a)
+    #     # In [a] but not in active space
+    #     bfs_not_m = [bfs_imp[i] for i,
+    #                                 eigval in enumerate(flatten(e_aj))
+    #                  if not key(eigval)] #Take complementary
+    #     # Active space
+    #     bfs_m = list(np.setdiff1d(bfs_imp,bfs_not_m))
+    #     # o := orbitals other atoms not in [a]
+    #     bfs_m_and_o_i = list(np.setdiff1d(range(nbf),bfs_not_m))
+    #     nbfs_m_and_o = len(bfs_m_and_o_i)
+    #
+    #     #Apply subdiagonalization
+    #     self.apply_rotation(c_MM)
+    #
+    #     if cutoff<np.inf:
+    #         # h_imp = get_subspace(self.H, bfs_imp)
+    #         # s_imp = get_subspace(self.S, bfs_imp)
+    #         #Effective active space := activespace and effective embedding
+    #         bfs_eff_i = []
+    #         bfs_eff_imp = []
+    #         for bfm in bfs_m: # for each bfm (bfm := basis of active)
+    #             row_m_imp = abs(self.H[bfm,bfs_imp])
+    #             #Index of couplings in [a]
+    #             coupling  = np.where(row_m_imp>cutoff)[0]
+    #             bfs_eff_imp = np.union1d(bfs_eff_imp, coupling)
+    #             #Effective active embedding for bfm
+    #             bfs_emb_i = np.arange(self.H.shape[0])[bfs_imp][coupling]
+    #             #Effective activespace
+    #             bfs_eff_i = np.union1d(bfs_eff_i, bfs_emb_i)
+    #         #Unify with others
+    #         bfs_eff_i = bfs_eff_i.tolist()
+    #         bfs_m_and_o_i = np.union1d(bfs_eff_i, bfs_m_and_o_i).tolist()
+    #         #Modify activespace with effective active space
+    #         h_imp = get_subspace(self.H, bfs_eff_i)
+    #         s_imp = get_subspace(self.S, bfs_eff_i)
+    #     else:
+    #         h_imp = get_subspace(self.H, bfs_m)
+    #         s_imp = get_subspace(self.S, bfs_m)
+    #
+    #
+    #     if include:
+    #         from .internalselfenergy import InternalSelfEnergy
+    #         #Subdiagonalized space of [a]
+    #         h_mm = get_subspace(self.H, bfs_imp)
+    #         s_mm = get_subspace(self.S, bfs_imp)
+    #         #Indecixes in impurities [a]
+    #         bfs_not_m_imp = [i for i,
+    #                                eigval in enumerate(flatten(e_aj))
+    #                          if not key(eigval)] #Take complementary
+    #         # Active space
+    #         bfs_m_imp = list(np.setdiff1d(np.arange(len(h_mm)),bfs_not_m_imp))
+    #         hs_mm, hs_ii, hs_im =  extract_orthogonal_subspaces(h_mm,
+    #                                                             s_mm,
+    #                                                             bfs_m_imp, #Modify
+    #                                                             bfs_not_m_imp, #Modify
+    #                                                             orthogonal=orthogonal)
+    #         #Embed rest of subdiagonalized orbitas (in [a]).
+    #         h_im = np.zeros((len(bfs_not_m),len(self.H)), complex)
+    #         s_im = np.zeros((len(bfs_not_m),len(self.H)), complex)
+    #         h_im[:,bfs_m] = hs_im[0]
+    #         s_im[:,bfs_m] = hs_im[1]
+    #         # h_im.take(bfs_m_and_o_i, axis=1)
+    #         # s_im.take(bfs_m_and_o_i, axis=1)
+    #         selfenergy = InternalSelfEnergy(hs_ii, (h_im, s_im)) #Coupling to leads is None!
+    #         self.selfenergies.append(selfenergy)
+    #
+    #
+    #     #Take (effective) activespace
+    #     self.take_bfs(bfs_m_and_o_i, apply=True)
+    #
+    #     return h_imp, s_imp
 
     def get_activespace(self, calc, a, key=lambda x: abs(x)<np.inf, orthogonal=True, inverse=False):
         '''
