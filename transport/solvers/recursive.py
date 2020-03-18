@@ -10,34 +10,50 @@ def left_div(a, b):
 
     return res
 
-def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji):
+def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, dos=False):
 
     N = len(mat_list_ii)
     mat_shapes = [mat.shape for mat in mat_list_ii]
 
-    # Allocate empty list
-    gr_list_ii = [None for _ in range(N)]
-    gr_list_1i = [None for _ in range(N)]
+    # np.matrix alias
+    m_qii = mat_list_ii
+    m_qij = mat_list_ij
+    m_qji = mat_list_ji
 
-    # Initialize retarded ginv_11 = (eS-H-Sigma)_11
-    gr_list_ii[0] = la.inv(mat_list_ii[0])
-                    #left_div(mat_list_ii[0], np.eye(mat_shapes[0][0]))
-    gr_list_1i[0] = gr_list_ii[0]
+    # Left connected green's function
+    grL_qii = [None for _ in range(N)]
+    # Initalize
+    grL_qii[0] = la.inv(m_qii[0]) # ([eS-H]_11-Sigma_L)^-1
+    # First row green's function
+    gr_1i = grL_qii[0].copy()
 
-    # Downward recursion
+    # Left connected recursion
     for q in range(1, N):
-        gr_ii = gr_list_ii[q - 1]
-        tau_ij = mat_list_ij[q - 1]
-        tau_ji = mat_list_ji[q - 1]
-        a_jj = tau_ji.dot(gr_ii.dot(tau_ij))
-        # Diagonal
-        gr_list_ii[q] = la.inv(mat_list_ii[q] - a_jj)
-                        #left_div(mat_list_ii[q] - a_jj,
-                        #np.eye(mat_shapes[q][0]))
-        # First row
-        gr_list_1i[q] = gr_list_1i[q - 1].dot(tau_ij.dot(gr_list_ii[q]))
+        # Left
+        grL_qii[q] = la.inv(m_qii[q] - m_qji[q - 1] @ grL_qii[q - 1] @ m_qij[q - 1])
+        # 1st row
+        gr_1i = gr_1i @ m_qij[q - 1] @ grL_qii[q]
 
-    return gr_list_1i[-1]
+    if not dos:
+        # Return g1N
+        return gr_1i
+
+    # Full green's function
+    Gr_qii = [None for _ in range(N)]
+    Gr_qji = [None for _ in range(N-1)]
+    Gr_qij = [None for _ in range(N-1)]
+    # Initialize
+    Gr_qii[-1] = grL_qii[-1] # G_NN = gL_NN = ([eS-H]_NN - [eS-H]_NN-1 * grL_N-1N-1 * [eS-H]_N-1N - Sigma_R)^-1
+
+    # Full recursion
+    for q in range(N-2, -1, -1):
+        Gr_qji[q] = - Gr_qii[q + 1] @ m_qji[q] @ grL_qii[q]
+        Gr_qij[q] = - grL_qii[q] @ m_qij[q] @ Gr_qii[q + 1]
+        Gr_qii[q] = grL_qii[q] - grL_qii[q] @ m_qij[q] @ Gr_qji[q]
+
+    # DOS
+    return Gr_qii, Gr_qij, Gr_qji
+
 
 def get_mat_lists(z, hs_list_ii, hs_list_ij, sigma_L=None, sigma_R=None):
 

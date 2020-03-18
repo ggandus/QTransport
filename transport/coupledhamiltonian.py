@@ -261,17 +261,20 @@ class CoupledHamiltonian:
         return e_aj
 
 
-def set_pzd_carbons(calc, coupledhamiltonian, apply=True):
+def set_pzd_carbons(calc, coupledhamiltonian, ext_C=None, int_C=None, Ce=None,
+                    Ci=None, apply=True):
     '''This function takes the pz- and d- orbitals of a scattering region.
     coupledhamiltonian can be either a CoupledHamiltonian or GreenFunction.
     If apply is set to False, the indices of the pzd- orbitals are returned
     instead. Note that this function modufies the '''
     from transport.analysis.tk_analysis import get_external_internal
     #
-    ext_C, int_C = get_external_internal(calc.atoms, 'C')
+    if (ext_C is None) or (int_C is None):
+        ext_C, int_C = get_external_internal(calc.atoms, 'C')
 
-    Ce = [3,6,10,12]
-    Ci = [3,6,10,11]
+    if (Ce is None) or (Ci is None):
+        Ce = [3,6,10,12]
+        Ci = [3,6,10,11]
 
     bfs_ext_i = get_bfs_indices(calc, ext_C, method='append')
     bfs_int_i = get_bfs_indices(calc, int_C, method='append')

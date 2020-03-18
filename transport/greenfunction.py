@@ -209,17 +209,28 @@ class RecursiveGF(CoupledHamiltonian):
 
         self.initialized = True
 
+
+    def _get_mat_lists(self, energy):
+        z = energy + self.eta * 1.j
+        sigma_L = self.selfenergies[0].retarded(energy)
+        sigma_R = self.selfenergies[1].retarded(energy)
+        # mat_list_ii, mat_list_ij, mat_list_ji
+        return get_mat_lists(z, self.hs_list_ii, self.hs_list_ij,
+                             sigma_L, sigma_R)
+
+
     def get_g1N(self, energy):
         #
         if energy != self.energy:
             self.energy = energy
-            z = energy + self.eta * 1.j
+            # z = energy + self.eta * 1.j
 
-            sigma_L = self.selfenergies[0].retarded(energy)
-            sigma_R = self.selfenergies[1].retarded(energy)
-
-            mat_lists = get_mat_lists(z, self.hs_list_ii, self.hs_list_ij,
-                                      sigma_L, sigma_R)
+            mat_lists = self._get_mat_lists(energy)
+            # sigma_L = self.selfenergies[0].retarded(energy)
+            # sigma_R = self.selfenergies[1].retarded(energy)
+            #
+            # mat_lists = get_mat_lists(z, self.hs_list_ii, self.hs_list_ij,
+            #                           sigma_L, sigma_R)
 
             self.g1N = recursive_gf(*mat_lists)#_ii, mat_list_ij, mat_list_ji)
 
@@ -239,3 +250,24 @@ class RecursiveGF(CoupledHamiltonian):
             T_e[e] = np.trace(lambda1_11.dot(gr_1N).dot(lambda2_NN).dot(ga_1N)).real
 
         return T_e
+
+
+    def get_dos(self, energies, dos_e=None):
+        N = len(self.hs_list_ii[0])
+
+        if dos_e is None:
+            dos_e = np.zeros(len(energies))
+
+        for e, energy in enumerate(energies):
+
+            self.G_ii, self.G_ij, self.G_ji = recursive_gf(*self._get_mat_lists(energy),
+                                                           dos=True)
+
+            for q in range(N):
+                dos_e[e] += np.trace(self.G_ii[q] @ self.hs_list_ii[1][q]).imag
+                if q < N-1:
+                    dos_e[e] += np.trace(self.G_ij[q] @ self.hs_list_ij[1][q].T).imag
+                if q > 0:
+                    dos_e[e] += np.trace(self.G_ji[q-1] @ self.hs_list_ij[1][q-1]).imag
+
+        return - dos_e / np.pi

@@ -578,3 +578,32 @@ def integrate_dos(G, mu=0, T=300, nzp=100, R=1e10):
     G.eta = eta
 
     return rho
+
+
+def integrate_pdos(G, mu=0, T=300, nzp=100, R=1e10):
+
+    from scipy.constants import e, k
+
+    zp, Rp = zero_fermi(nzp)
+    N = nzp
+
+    k_B = k / e # Boltzmann constant [eV/K] 8.6173303e-05
+    beta = 1/(k_B*T)
+    a_p = mu + 1j*zp/beta
+
+    eta = G.eta
+    G.eta = complex(0.)
+
+    R = 1e10
+    mu_0 = 1j*R*G.apply_retarded(1j*R, G.S).diagonal()
+
+    mu_1 = np.zeros(len(G.H), complex)
+    for i in range(N):
+        mu_1 += G.apply_retarded(a_p[i], G.S).diagonal() * Rp[i]
+    mu_1 *= -1j*4/beta
+
+    rho = np.real(mu_0) + np.imag(mu_1)
+
+    G.eta = eta
+
+    return rho
