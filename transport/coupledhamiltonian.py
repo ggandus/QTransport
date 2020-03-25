@@ -196,6 +196,63 @@ class CoupledHamiltonian:
     #
     #     return h_imp, s_imp
 
+    def order_species(self, calc, sort_diag=False, apply=False):
+
+        atoms = calc.atoms
+
+        # Order atomic species
+        symbols = np.array(atoms.symbols)
+        species = set(symbols)
+        indices_xa = [None for _ in range(len(species))]
+        for e, elem in enumerate(species):
+            indices_xa[e] = np.where(symbols==elem)[0]
+
+        # Subdiagonalize atoms
+        p_mm = self.subdiagonalize_atoms(calc, apply=False)
+        # Order orbitals within species
+        u_mm = self.order_subset(calc, indices_xa,
+                                 sort_diag=sort_diag, apply=False)
+        c_mm = p_mm.dot(u_mm)
+        if apply:
+            self.apply_rotation(c_mm)
+            return
+
+        return c_mm
+
+    def order_subset(self, calc, indices_xa, sort_diag=False, apply=False):
+        '''This function is supposed to be used in subdiagonalized Hamiltoninans to
+        order the atomic orbital indices within groups [x] of atoms [a] specified by
+        indices_xa. [a] can be a list of lists and/or lists and ints.'''
+        h_mm = self.H
+        s_mm = self.S
+        m = h_mm.shape[-1]
+
+        perm_list = []
+        for indices_a in indices_xa:
+            try:
+                indices_a[0][0]
+            except TypeError:
+                # indices_a is a list of int
+                bfs_i = get_bfs_indices(calc, indices_a, 'append')
+            else:
+                # indices_a is a list of lists of atoms forming a block
+                bfs_i = []
+                for jj in indices_a:
+                    bfs_i.append(get_bfs_indices(calc, jj))
+            bfs_i = np.array(bfs_i)
+            if sort_diag:
+                # Order diagonal in subset
+                bfs_i = bfs_i.T
+            perm_list.extend(bfs_i.flatten())
+        # Rotation matrix
+        c_mm = np.eye(m).take(perm_list, axis=1)
+        if apply:
+            self.apply_rotation(c_mm)
+            return
+
+        return c_mm
+
+
     def get_activespace(self, calc, a, key=lambda x: abs(x)<np.inf, orthogonal=True, inverse=False):
         '''
             key     := Apply condition to eigenvalues of subdiagonalized atoms.
