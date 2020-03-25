@@ -38,44 +38,44 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, dos=False):
         # Return g1N
         return gr_1i
 
-    # Right connected green's function
-    hgh_qii = [None for _ in range(N-1)]
-    # Initalize
-    grR_inv = m_qii[-1] # ([eS-H]_NN-Sigma_R)^-1
-
-    # Right connected recursion
-    for q in range(N-2, -1, -1):
-        # Left
-        hgh_qii[q] = m_qij[q] @ la.solve(grR_inv, m_qji[q])
-        grR_inv = m_qii[q] - hgh_qii[q]
-
     # Full green's function
     Gr_qii = [None for _ in range(N)]
-    Gr_qii[-1] = grL_qii[-1]       #Actual gNN
-    Gr_qii[0]  = la.inv(grR_inv)   #Actual g11
-    for q in range(1, N-1):
-        # from IPython import embed
-        # embed()
-        Gr_qii[q] = grL_qii[q] @ la.inv(
-        np.eye(mat_shapes[q]) - grL_qii[q] @ hgh_qii[q])
+    Gr_qji = [None for _ in range(N-1)]
+    Gr_qij = [None for _ in range(N-1)]
+    # Initialize
+    Gr_qii[-1] = grL_qii[-1] # G_NN = gL_NN = ([eS-H]_NN - [eS-H]_NN-1 * grL_N-1N-1 * [eS-H]_N-1N - Sigma_R)^-1
 
-    return Gr_qii, None, None
+    # Full recursion
+    for q in range(N-2, -1, -1):
+        Gr_qji[q] = - Gr_qii[q + 1] @ m_qji[q] @ grL_qii[q]
+        Gr_qij[q] = - grL_qii[q] @ m_qij[q] @ Gr_qii[q + 1]
+        Gr_qii[q] = grL_qii[q] - grL_qii[q] @ m_qij[q] @ Gr_qji[q]
+
+    # DOS
+    return Gr_qii, Gr_qij, Gr_qji
+
+
+    # # Right connected green's function
+    # hgh_qii = [None for _ in range(N-1)]
+    # # Initalize
+    # grR_inv = m_qii[-1] # ([eS-H]_NN-Sigma_R)^-1
+    #
+    # # Right connected recursion
+    # for q in range(N-2, -1, -1):
+    #     # Left
+    #     hgh_qii[q] = m_qij[q] @ la.solve(grR_inv, m_qji[q])
+    #     grR_inv = m_qii[q] - hgh_qii[q]
+    #
     # # Full green's function
     # Gr_qii = [None for _ in range(N)]
-    # Gr_qji = [None for _ in range(N-1)]
-    # Gr_qij = [None for _ in range(N-1)]
-    # # Initialize
-    # Gr_qii[-1] = grL_qii[-1] # G_NN = gL_NN = ([eS-H]_NN - [eS-H]_NN-1 * grL_N-1N-1 * [eS-H]_N-1N - Sigma_R)^-1
+    # Gr_qii[-1] = grL_qii[-1]       #Actual gNN
+    # Gr_qii[0]  = la.inv(grR_inv)   #Actual g11
+    # for q in range(1, N-1):
+    #     Gr_qii[q] = grL_qii[q] @ la.inv(
+    #     np.eye(mat_shapes[q]) - grL_qii[q] @ hgh_qii[q])
     #
-    # # Full recursion
-    # for q in range(N-2, -1, -1):
-    #     Gr_qji[q] = - Gr_qii[q + 1] @ m_qji[q] @ grL_qii[q]
-    #     Gr_qij[q] = - grL_qii[q] @ m_qij[q] @ Gr_qii[q + 1]
-    #     Gr_qii[q] = grL_qii[q] - grL_qii[q] @ m_qij[q] @ Gr_qji[q]
+    # return Gr_qii, None, None
     #
-    # # DOS
-    # return Gr_qii, Gr_qij, Gr_qji
-
 
 def get_mat_lists(z, hs_list_ii, hs_list_ij, sigma_L=None, sigma_R=None):
 

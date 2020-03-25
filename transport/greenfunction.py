@@ -247,22 +247,30 @@ class RecursiveGF(CoupledHamiltonian):
         return T_e
 
 
-    def get_dos(self, energies, dos_e=None):
-        N = len(self.hs_list_ii[0])
+    def dos(self, energy):
 
-        if dos_e is None:
-            dos_e = np.zeros(len(energies))
+        from itertools import chain
 
-        for e, energy in enumerate(energies):
+        S_qii = self.hs_list_ii[1]
+        S_qij = self.hs_list_ij[1]
+        S_qji = (s.T.conj() for s in self.hs_list_ij[1])
 
-            self.G_ii, self.G_ij, self.G_ji = recursive_gf(*self._get_mat_lists(energy),
-                                                           dos=True)
+        G_qii, G_qij, G_qji = recursive_gf(*self._get_mat_lists(energy),
+                                        dos=True)
 
-            for q in range(N):
-                dos_e[e] += np.trace(self.G_ii[q] @ self.hs_list_ii[1][q]).imag
-                if q < N-1:
-                    dos_e[e] += np.trace(self.G_ij[q] @ self.hs_list_ij[1][q].T).imag
-                if q > 0:
-                    dos_e[e] += np.trace(self.G_ji[q-1] @ self.hs_list_ij[1][q-1]).imag
+        # Diagonal sum
+        GS_qii = ((g @ s).imag for g,s in zip(G_qii,S_qii))
+        # Upper diagonal sum
+        GS_qii = (gs + np.dot(g_ij,s_ji).imag for gs,
+                                       g_ij,
+                                       s_ji in zip(GS_qii,
+                                                   chain(G_qij,(0.,)),
+                                                   chain(S_qji,(0.,))))
+        # Lower diagonal sum
+        GS_qii = (gs + np.dot(g_ji,s_ij).imag for gs,
+                                       g_ji,
+                                       s_ij in zip(GS_qii,
+                                                   chain((0.,),G_qji),
+                                                   chain((0.,),S_qij)))
 
-        return - dos_e / np.pi
+        return - sum(GS.trace() for GS in GS_qii) / np.pi
