@@ -8,8 +8,8 @@ import scipy.linalg as sla
 import ase.units as units
 
 from gpaw.utilities.tools import tri2full
-from .tklcao import h_and_s
-from transport.tkgpaw import subdiagonalize_atoms
+from .tk_lcao import h_and_s
+from transport.tk_gpaw import subdiagonalize_atoms
 from transport.tools import subdiagonalize, rotate_matrix, order_diagonal, cutcoupling
 from transport.coupledhamiltonian import CoupledHamiltonian
 
