@@ -182,6 +182,7 @@ class RecursiveGF(CoupledHamiltonian):
         calc = p['calc']
         pl1 = p['pl1']
         pl2 = p['pl2']
+        cutoff = p['cutoff']
 
         if pl1 is None:
             pl1 = self.selfenergies[0].natoms
@@ -223,20 +224,14 @@ class RecursiveGF(CoupledHamiltonian):
         #
         if energy != self.energy:
             self.energy = energy
-            # z = energy + self.eta * 1.j
 
             mat_lists = self._get_mat_lists(energy)
-            # sigma_L = self.selfenergies[0].retarded(energy)
-            # sigma_R = self.selfenergies[1].retarded(energy)
-            #
-            # mat_lists = get_mat_lists(z, self.hs_list_ii, self.hs_list_ij,
-            #                           sigma_L, sigma_R)
 
             self.g1N = recursive_gf(*mat_lists)#_ii, mat_list_ij, mat_list_ji)
 
         return self.g1N
 
-    def get_transmission(self, energies, T_e):
+    def get_transmission(self, energies, T_e=None):
 
         if T_e is None:
             T_e = np.zeros(len(energies))
