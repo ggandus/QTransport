@@ -299,7 +299,7 @@ class PrincipalSelfEnergy(PrincipalLayer):
         self.scatt = scatt
         # self.eta = 1e-5
         self.energy = None
-        # self.bias = 0
+        self.bias = 0.
         self.id = id
 
         self.parameters = {'eta': 1e-5,
@@ -310,13 +310,18 @@ class PrincipalSelfEnergy(PrincipalLayer):
 
     def set(self, **kwargs):
         for key in kwargs:
-            if key in ['eta','scatt', 'bias', 'id']:
+            if key in ['scatt', 'id']:
                 self.initialized = False
                 break
             elif key not in self.parameters:
                 raise KeyError('%r not a vaild keyword' % key)
 
         self.parameters.update(kwargs)
+
+    def set_bias(self, bias):
+        self.bias = bias
+        for selfenergy in self.selfenergies:
+            selfenergy.set_bias(bias)
 
     def initialize(self, H_kMM=None, S_kMM=None, direction='x'):
 
@@ -329,7 +334,7 @@ class PrincipalSelfEnergy(PrincipalLayer):
 
         #Set eta and bias
         self.eta = p['eta']
-        self.bias = p['bias']
+        # self.bias = p['bias']
 
         self.remove_pbc(self.H_kij)
         self.remove_pbc(self.S_kij)
@@ -342,11 +347,13 @@ class PrincipalSelfEnergy(PrincipalLayer):
         # Selfenergies
         self.selfenergies = [LeadSelfEnergy((h_ii,s_ii),
                                             (h_ij,s_ij),
-                                            (h_ij,s_ij),eta=1e-5)
+                                            (h_ij,s_ij),
+                                            eta=self.eta)
                              for h_ii, s_ii, h_ij, s_ij in zip(self.H_kii,
                                                                self.S_kii,
                                                                self.H_kij,
                                                                self.S_kij)]
+
 
         # Number of basis functions leads (i) and scattering (m) regions
         nbf_i = self.calc.setups.nao * len(self.R_cN.T)

@@ -12,7 +12,7 @@ class LeadSelfEnergy(InternalSelfEnergy):
 
     def __init__(self, hs_dii, hs_dij, hs_dim, eta=1e-4):
         self.h_ij, self.s_ij = hs_dij # coupling between principal layers
-        self.bias = 0
+        # self.bias = 0
         InternalSelfEnergy.__init__(self, hs_dii, hs_dim, eta=eta)
 
     def set_bias(self, bias):
@@ -58,7 +58,7 @@ class LeadSelfEnergy(InternalSelfEnergy):
         self.s_ii = self.s_ii.copy() # as self[0].h_ii -> H1[:nprinc,:nprinc]
         InternalSelfEnergy.apply_rotation(self, c_mm)
         self.h_ij = rotate_matrix(self.h_ij, c_mm)
-        self.s_ij = rotate_matrix(self.s_ij, c_mm) 
+        self.s_ij = rotate_matrix(self.s_ij, c_mm)
 
     def cutcoupling_bfs(self, bfs, apply=False):
         # self.get_sgfinv.cache_clear()
