@@ -274,3 +274,7 @@ class RecursiveGF(CoupledHamiltonian):
                                                    chain((0.,),S_qij)))
 
         return - sum(GS.trace() for GS in GS_qii) / np.pi
+
+
+    def occupations(self, energy):
+        pass

@@ -3,6 +3,7 @@ from scipy import linalg as la
 
 #Cutoff for cutting block matrices
 from .tridiagonal import cutoff
+from transport.tools import dagger
 
 def left_div(a, b):
     # Solve ax=b
@@ -10,7 +11,7 @@ def left_div(a, b):
 
     return res
 
-def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, dos=False):
+def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
 
     N = len(mat_list_ii)
     mat_shapes = [mat.shape[0] for mat in mat_list_ii]
@@ -34,6 +35,7 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, dos=False):
         # 1st row
         gr_1i = gr_1i @ m_qij[q - 1] @ grL_qii[q]
 
+    # Only transport
     if not dos:
         # Return g1N
         return gr_1i
@@ -51,9 +53,41 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, dos=False):
         Gr_qij[q] = - grL_qii[q] @ m_qij[q] @ Gr_qii[q + 1]
         Gr_qii[q] = grL_qii[q] - grL_qii[q] @ m_qij[q] @ Gr_qji[q]
 
-    # DOS
-    return Gr_qii, Gr_qij, Gr_qji
+    # Return retarded
+    if s_in is None:
+        # DOS
+        return Gr_qii, Gr_qij, Gr_qji
+        
+    # Electron correlation function
+    if isinstance(s_in, list):
 
+        gnL_qii = [None for _ in range(N)]
+        # Initalize
+        gnL_qii = grL_qii[0] @ s_in[0] @ dagger(grL_qii[0])
+
+        # Left connected recursion
+        for q in range(1, N):
+            sl = m_qji[q - 1] @ gnL_qii[q - 1] @ m_qij[q - 1]
+            gnL_qii[q] = grL_qii[q] @ (s_in[q] + sl) @ dagger(grL_N[q])
+
+        Gn_qii = [None for _ in range(N)]
+        Gn_qij = [None for _ in range(N-1)]
+        Gn_qji = [None for _ in range(N-1)]
+        # Initialize
+        Gn_qii[-1] = gnL_qii[-1]
+
+        # Full recursion
+        for q in range(N-2, -1, -1):
+            a = Gn_qii[q + 1] @ dagger(m_qji[q]) @ dagger(grL_qii[q])
+            Gn_qij[q] = - Gr_qii[q + 1] @ m_qji[q] @ gnL_qii[q] - a
+            Gn_qii[q] = gnL_qii[q] + \
+                        grL_qii[q] @ m_qij[q] @  a - \
+                        gnL_qii[q] @ dagger(m_qij[q]) @ dagger(Gr_qji[q]) - \
+                        Gr_qij[q] @ m_qji[q] @ gnL_qii[q]
+            Gn_qji = dagger(Gn_qij[q])
+
+    # Return electron correlation
+    return Gn_qii, Gn_qij, Gn_qji
 
     # # Right connected green's function
     # hgh_qii = [None for _ in range(N-1)]
