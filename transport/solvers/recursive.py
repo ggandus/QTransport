@@ -56,8 +56,8 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
     # Return retarded
     if s_in is None:
         # DOS
-        return Gr_qii, Gr_qij, Gr_qji
-        
+        return gr_1i, Gr_qii, Gr_qij, Gr_qji
+
     # Electron correlation function
     if isinstance(s_in, list):
 
@@ -135,3 +135,17 @@ def get_mat_lists(z, hs_list_ii, hs_list_ij, sigma_L=None, sigma_R=None):
         mat_list_ii[-1] -= sigma_R
 
     return mat_list_ii, mat_list_ij, mat_list_ji
+
+def multiply(A_qii, A_qij, A_qji, B_qii, B_qij, B_qji):
+    """Helper function to multiply two block tridiagonal
+    matrices."""
+    # Diagonal sum
+    AB_qii = [a @ b for a,b in zip(A_qii,B_qii)]
+    # Upper diagonal sum
+    for q in range(N-1):
+        AB_qii[q][:] += A_qij[q] @ B_qji[q]
+    # Lower diagonal sum
+    for q in range(1,N):
+        AB_qii[q][:] += A_qji[q-1] @ B_qij[q-1]
+
+    return AB_qii

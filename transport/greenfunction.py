@@ -97,6 +97,13 @@ class GreenFunction(CoupledHamiltonian):
         """
         return np.linalg.solve(self.retarded(energy, inverse=True), X)
 
+    def apply_overlap(self, energy, trace=False):
+        """Apply retarded Green function to S."""
+        GS = self.apply_retarded(energy, self.S)
+        if trace:
+            return np.trace(GS)
+        return GS
+
     def dos(self, energy):
         """Total density of states -1/pi Im(Tr(GS))"""
         if self.S is None:
@@ -213,8 +220,12 @@ class RecursiveGF(CoupledHamiltonian):
 
     def _get_mat_lists(self, energy):
         z = energy + self.eta * 1.j
-        sigma_L = self.selfenergies[0].retarded(energy)
-        sigma_R = self.selfenergies[1].retarded(energy)
+        if self.selfenergies:
+            sigma_L = self.selfenergies[0].retarded(energy)
+            sigma_R = self.selfenergies[1].retarded(energy)
+        else:
+            sigma_L = None
+            sigma_R = None
         # mat_list_ii, mat_list_ij, mat_list_ji
         return get_mat_lists(z, self.hs_list_ii, self.hs_list_ij,
                              sigma_L, sigma_R)
@@ -246,35 +257,53 @@ class RecursiveGF(CoupledHamiltonian):
 
         return T_e
 
+    def apply_retarded(self, energy, X_qii, X_qij, X_1N=None):
+        """Apply retarded Green function to X in tridiagonal form."""
 
-    def dos(self, energy):
+        N = len(self.hs_list_ii[0])
+        X_qji = (x.T.conj() for x in X_qij)
 
-        from itertools import chain
-
-        S_qii = self.hs_list_ii[1]
-        S_qij = self.hs_list_ij[1]
-        S_qji = (s.T.conj() for s in self.hs_list_ij[1])
-
-        G_qii, G_qij, G_qji = recursive_gf(*self._get_mat_lists(energy),
-                                        dos=True)
+        gr_1N, G_qii, G_qij, G_qji = recursive_gf(*self._get_mat_lists(energy),
+                                                   dos=True)
 
         # Diagonal sum
-        GS_qii = ((g @ s).imag for g,s in zip(G_qii,S_qii))
+        GX_qii = [g @ x for g,x in zip(G_qii,X_qii)]
         # Upper diagonal sum
-        GS_qii = (gs + np.dot(g_ij,s_ji).imag for gs,
-                                       g_ij,
-                                       s_ji in zip(GS_qii,
-                                                   chain(G_qij,(0.,)),
-                                                   chain(S_qji,(0.,))))
+        for q in range(N-1):
+            GX_qii[q][:] += G_qij[q] @ next(X_qji)
         # Lower diagonal sum
-        GS_qii = (gs + np.dot(g_ji,s_ij).imag for gs,
-                                       g_ji,
-                                       s_ij in zip(GS_qii,
-                                                   chain((0.,),G_qji),
-                                                   chain((0.,),S_qij)))
+        for q in range(1,N):
+            GX_qii[q][:] += G_qji[q-1] @ X_qij[q-1]
 
-        return - sum(GS.trace() for GS in GS_qii) / np.pi
+        # Periodic boundary conditions
+        if X_1N is not None:
+            # GX[0]  += gr_1N * X_N1
+            GX_qii[0][:] += gr_1N @ X_1N.T
+            # GX[-1] += gr_N1 * X_1N
+            GX_qii[-1][:] += gr_1N.T @ X_1N
 
+        return GX_qii
+
+    def apply_overlap(self, energy, trace=False):
+        S_qii = self.hs_list_ii[1]
+        S_qij = self.hs_list_ij[1]
+        # Open boundary conditions
+        if self.selfenergies:
+            S_1N = None
+        # Periodic boundary conditions
+        else:
+            # The Green function changes as well.
+            raise NotImplementedError('Periodic boundary conditions not implemented')
+            # S_1N = self.S_1N
+        GS_qii = self.apply_retarded(energy, S_qii, S_qij, S_1N)
+        if trace:
+            return sum(GS.trace() for GS in GS_qii)
+        return GS_qii
+
+
+    def dos(self, energy):
+        GS = self.apply_overlap(energy, trace=True)
+        return - GS.imag / np.pi
 
     def occupations(self, energy):
         pass
