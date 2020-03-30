@@ -139,6 +139,7 @@ def get_mat_lists(z, hs_list_ii, hs_list_ij, sigma_L=None, sigma_R=None):
 def multiply(A_qii, A_qij, A_qji, B_qii, B_qij, B_qji):
     """Helper function to multiply two block tridiagonal
     matrices."""
+    N = len(A_qii)
     # Diagonal sum
     AB_qii = [a @ b for a,b in zip(A_qii,B_qii)]
     # Upper diagonal sum
