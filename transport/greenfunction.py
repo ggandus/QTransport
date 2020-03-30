@@ -6,7 +6,7 @@ from .tools import dagger
 
 #Recursive GreenFunction helpers
 from .solvers.tridiagonal   import tridiagonalize, cutoff
-from .solvers.recursive import get_mat_lists, recursive_gf
+from .solvers.recursive import get_mat_lists, recursive_gf, multiply
 
 
 class GreenFunction(CoupledHamiltonian):
@@ -208,6 +208,9 @@ class RecursiveGF(CoupledHamiltonian):
                                            calc, self.H, self.S,
                                            pl1, pl2, cutoff)
 
+        self.hs_list_ji = [[h.T for h in self.hs_list_ij[0]],
+                           [s.T for s in self.hs_list_ij[1]]]
+
         #Note h_im[:,:pl1]=h_ij for Left and h_im[:,-pl2:]=h_ij for Right
         for selfenergy in self.selfenergies:
             selfenergy.h_im = selfenergy.h_ij
@@ -228,7 +231,7 @@ class RecursiveGF(CoupledHamiltonian):
             sigma_R = None
         # mat_list_ii, mat_list_ij, mat_list_ji
         return get_mat_lists(z, self.hs_list_ii, self.hs_list_ij,
-                             sigma_L, sigma_R)
+                             self.hs_list_ji, sigma_L, sigma_R)
 
 
     def get_g1N(self, energy):
@@ -257,23 +260,17 @@ class RecursiveGF(CoupledHamiltonian):
 
         return T_e
 
-    def apply_retarded(self, energy, X_qii, X_qij, X_1N=None):
+    def apply_retarded(self, energy, X_qii, X_qij, X_qji, X_1N=None):
         """Apply retarded Green function to X in tridiagonal form."""
 
         N = len(self.hs_list_ii[0])
-        X_qji = (x.T.conj() for x in X_qij)
+        # X_qji = [x.T.conj() for x in X_qij]
 
         gr_1N, G_qii, G_qij, G_qji = recursive_gf(*self._get_mat_lists(energy),
                                                    dos=True)
 
-        # Diagonal sum
-        GX_qii = [g @ x for g,x in zip(G_qii,X_qii)]
-        # Upper diagonal sum
-        for q in range(N-1):
-            GX_qii[q][:] += G_qij[q] @ next(X_qji)
-        # Lower diagonal sum
-        for q in range(1,N):
-            GX_qii[q][:] += G_qji[q-1] @ X_qij[q-1]
+
+        GX_qii = multiply(G_qii, G_qij, G_qji, X_qii, X_qij, X_qji)
 
         # Periodic boundary conditions
         if X_1N is not None:
@@ -287,6 +284,7 @@ class RecursiveGF(CoupledHamiltonian):
     def apply_overlap(self, energy, trace=False):
         S_qii = self.hs_list_ii[1]
         S_qij = self.hs_list_ij[1]
+        S_qji = self.hs_list_ji[1]
         # Open boundary conditions
         if self.selfenergies:
             S_1N = None
@@ -295,7 +293,7 @@ class RecursiveGF(CoupledHamiltonian):
             # The Green function changes as well.
             raise NotImplementedError('Periodic boundary conditions not implemented')
             # S_1N = self.S_1N
-        GS_qii = self.apply_retarded(energy, S_qii, S_qij, S_1N)
+        GS_qii = self.apply_retarded(energy, S_qii, S_qij, S_qji, S_1N)
         if trace:
             return sum(GS.trace() for GS in GS_qii)
         return GS_qii
@@ -305,5 +303,5 @@ class RecursiveGF(CoupledHamiltonian):
         GS = self.apply_overlap(energy, trace=True)
         return - GS.imag / np.pi
 
-    def occupations(self, energy):
-        pass
+    def pdos(self, energy):
+        GS = self.apply_overlap(energy)

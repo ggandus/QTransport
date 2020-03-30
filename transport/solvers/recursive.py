@@ -111,7 +111,7 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
     # return Gr_qii, None, None
     #
 
-def get_mat_lists(z, hs_list_ii, hs_list_ij, sigma_L=None, sigma_R=None):
+def get_mat_lists(z, hs_list_ii, hs_list_ij, hs_list_ji, sigma_L=None, sigma_R=None):
 
     mat_list_ii = []
     mat_list_ij = []
@@ -122,7 +122,12 @@ def get_mat_lists(z, hs_list_ii, hs_list_ij, sigma_L=None, sigma_R=None):
                           s_list_ij):
 
         mat_list_ij.append(z * s_ij - h_ij)
-        mat_list_ji.append(z * s_ij.T.conj() - h_ij.T.conj())
+
+    h_list_ji, s_list_ji = hs_list_ji
+    for h_ji, s_ji in zip(h_list_ji,
+                          s_list_ji):
+
+        mat_list_ji.append(z * s_ji - h_ji)
 
     h_list_ii, s_list_ii = hs_list_ii
     for h_ii, s_ii in zip(h_list_ii,
