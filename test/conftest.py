@@ -11,9 +11,10 @@ from transport.calculators import TransportCalculator
 from transport.greenfunction import GreenFunction, RecursiveGF
 from transport.lcao.principallayer import PrincipalSelfEnergy
 
-test_types = ['transmission','dos']
 test_filename = {'transmission': 'ET.pckl',
-                 'dos': 'ED.pckl'}
+                 'dos': 'ED.pckl',
+                 'nelectrons': 'N.pckl'}
+test_types = test_filename.keys()
 
 def get_prefix(prefix):
     return join('data',prefix+'_')
@@ -36,10 +37,10 @@ def get_expected():
     def inner(prefix, test_type):
         if test_type in test_types:
             prefix = get_prefix(prefix)
-            E, T  = load_pickle(prefix+test_filename[test_type])
+            data  = load_pickle(prefix+test_filename[test_type])
         else:
             raise VauleError('Not valid test type {}'.formta(type))
-        return E, T
+        return data
     return inner
 
 

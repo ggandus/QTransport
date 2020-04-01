@@ -10,18 +10,14 @@ from transport.continued_fraction import integrate_dos
                                    #'from_hs',
                                    'from_rgf'])
                                    # pytest.param('from_rgf',pytest.mark.recursive)])
-def test_occupation(prefix, method, get_data, setup):
+def test_occupation(prefix, method, get_expected, setup):
 
     tcalc = setup(method, prefix)
-    scalc = get_data(prefix)[0]
-    # Periodic boundary conditions
-    tcalc.set(align_bf=None)
-    tcalc.selfenergies = []
     tcalc.initialize()
+    N = get_expected(prefix, 'nelectrons')
     #
     GF = tcalc.greenfunction
-    ocp = integrate_dos(GF)
-    nvalence = scalc.wfs.nvalence
-    assert np.allclose(ocp,nvalence)
+    nele = integrate_dos(GF)
+    assert np.allclose(nele, N)
 
 # test_transmission(setup)
