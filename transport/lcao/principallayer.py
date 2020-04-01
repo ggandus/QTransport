@@ -26,9 +26,9 @@ class PrincipalLayer:
         self.Nk_c = kd.N_c
         self.offset_c = kd.offset_c
 
-        self.update(direction)
+        self.update()
 
-    def initialize(self, H_kMM=None, S_kMM=None, direction='x'):
+    def initialize(self, H_kMM=None, S_kMM=None):
 
         if H_kMM is None:
             H_kMM, S_kMM = h_and_s(self.calc)
@@ -38,7 +38,7 @@ class PrincipalLayer:
             self.align_fermi(H_kMM, S_kMM)
 
         # Transport direction
-        self.update(direction)
+        self.update()
         p_dir, t_dirs = self.get_directions()
 
         R_c = [0,0,0]
@@ -62,24 +62,29 @@ class PrincipalLayer:
         t_dirs = np.delete([0, 1, 2], p_dir)
         return p_dir, t_dirs
 
-    def set_num_cells(self):
+    def set_num_cells(self, Nr_c=None):
+        # Number of realspace cells. Defaults to k-points transverse
+        if Nr_c is None:
+            t_dirs = self.get_directions()[1]
+            Nr_c = self.Nk_c[t_dirs]
 
         t_dirs = self.get_directions()[1]
 
         # Lattice vectors
-        R_cN = np.indices(self.Nk_c[t_dirs]).reshape(2, -1)
-        N_c = np.array(self.Nk_c[t_dirs])[:, np.newaxis]
+        R_cN = np.indices(Nr_c).reshape(2, -1)
+        N_c = np.array(Nr_c)[:, np.newaxis]
         R_cN += N_c // 2
         R_cN %= N_c
         R_cN -= N_c // 2
         self.R_cN = R_cN
+        self.Nr_c = Nr_c
 
     def align_fermi(self, H_kMM, S_kMM):
 
         fermi = self.calc.get_fermi_level()
         H_kMM -= fermi * S_kMM
 
-    def update(self, direction='x'):
+    def update(self):
 
         # Define transport and transverse directions
         p_dir, t_dirs = self.get_directions()
@@ -228,8 +233,10 @@ class PrincipalLayer:
 
         # Transverse directions and # of k-point
         p_dir, t_dirs = self.get_directions()
-        N_c = self.Nk_c.copy()
-        N_c[p_dir] = 1
+        # N_c = self.Nk_c.copy()
+        # N_c[p_dir] = 1
+        N_c = np.ones(3, dtype=int)
+        N_c[t_dirs] = self.Nr_c
 
         # number of repeted unitcells and atoms
         M = np.prod(N_c)
@@ -303,7 +310,10 @@ class PrincipalSelfEnergy(PrincipalLayer):
         self.id = id
 
         self.parameters = {'eta': 1e-5,
-                           'bias': 0}
+                           'bias': 0,
+                           # number of realspace cells. None defaults to Nk_c[t_dirs]
+                           'Nr_c': None
+                           }
 
         self.initialized = False
         self.set(**kwargs)
@@ -323,18 +333,21 @@ class PrincipalSelfEnergy(PrincipalLayer):
         for selfenergy in self.selfenergies:
             selfenergy.set_bias(bias)
 
-    def initialize(self, H_kMM=None, S_kMM=None, direction='x'):
+    def initialize(self, H_kMM=None, S_kMM=None):
 
         if self.initialized:
             return
 
-        super().initialize(H_kMM, S_kMM, direction)
+        super().initialize(H_kMM, S_kMM)
 
         p = self.parameters
 
-        #Set eta and bias
         self.eta = p['eta']
-        # self.bias = p['bias']
+        Nr_c = p['Nr_c']
+
+        if Nr_c is not None:
+            assert len(Nr_c) == 2, 'Invalid length of Nr_c. It must be 2.'
+            self.set_num_cells(Nr_c)
 
         self.remove_pbc(self.H_kij)
         self.remove_pbc(self.S_kij)
