@@ -101,7 +101,7 @@ def order_coordinate(arr, axes=None):
 def order_atoms(atoms, direction='x'):
 
     if direction is 'x':
-        axes = [0,1,2]
+        axes = [0,2,1]
     elif direction is 'y':
         axes = [1,0,2]
     else:
