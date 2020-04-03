@@ -25,6 +25,7 @@ class PrincipalLayer:
         self.ibzk_kc = kd.ibzk_kc
         self.Nk_c = kd.N_c
         self.offset_c = kd.offset_c
+        self.fermi = self.calc.get_fermi_level()
 
         self.update()
 
@@ -81,8 +82,8 @@ class PrincipalLayer:
 
     def align_fermi(self, H_kMM, S_kMM):
 
-        fermi = self.calc.get_fermi_level()
-        H_kMM -= fermi * S_kMM
+        H_kMM -= self.fermi * S_kMM
+        # self.fermi = 0.
 
     def update(self):
 
@@ -335,8 +336,8 @@ class PrincipalSelfEnergy(PrincipalLayer):
 
     def initialize(self, H_kMM=None, S_kMM=None):
 
-        if self.initialized:
-            return
+        # if self.initialized:
+        #     return
 
         super().initialize(H_kMM, S_kMM)
 
@@ -400,7 +401,7 @@ class PrincipalSelfEnergy(PrincipalLayer):
         self.nbf_m = nbf_m
         self.nbf_i = nbf_i
 
-        self.initialized = True
+        # self.initialized = True
 
     def retarded(self, energy):
         """Return self-energy (sigma) evaluated at specified energy."""
@@ -436,6 +437,15 @@ class PrincipalSelfEnergy(PrincipalLayer):
         # Compute quantities in realspace
         G = self.bloch_to_real_space_block(G_kMM)
         return G
+
+    def apply_overlap(self, energy, trace=False, diag=False):
+        """Apply retarded Green function to S."""
+        GS = self.get_G(energy) @ self.S
+        if trace:
+            return np.trace(GS)
+        if diag:
+            return GS.diagonal()
+        return GS
 
     def dos(self, energy):
         """Total density of states -1/pi Im(Tr(GS))"""

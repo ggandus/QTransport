@@ -97,11 +97,13 @@ class GreenFunction(CoupledHamiltonian):
         """
         return np.linalg.solve(self.retarded(energy, inverse=True), X)
 
-    def apply_overlap(self, energy, trace=False):
+    def apply_overlap(self, energy, trace=False, diag=False):
         """Apply retarded Green function to S."""
         GS = self.apply_retarded(energy, self.S)
         if trace:
             return np.trace(GS)
+        if diag:
+            return GS.diagonal()
         return GS
 
     def dos(self, energy):
