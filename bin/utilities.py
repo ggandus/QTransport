@@ -52,11 +52,14 @@ def add_hydrogens(atoms):
         htoadd = ase.Atom('H',vec)
         atoms.append(htoadd)
 
-def extend_atoms(atoms, n_uc, n_rep, direction='x'):
-    ##
+def extend_atoms(atoms, n_uc, n_rep, direction='x', sides=[0, 1]):
+    ## sides indicates whether to extend start (0) and/or end (1) along transport
 
     if not atoms.cell.orthorhombic:
         raise NotImplementedError('Cell must be orthorhombic')
+
+    if isinstance(sides, int):
+        sides = [sides]
 
     orig  = atoms
     order_atoms(atoms, direction)
@@ -75,8 +78,12 @@ def extend_atoms(atoms, n_uc, n_rep, direction='x'):
         # Store cell
         uc_cell = atoms[n_uc].position[d] - atoms[0].position[d]
         # Expand Atoms and unit cell
-        atoms = uc_ldl + atoms + uc_ldr
-        atoms.cell[d,d] += 2  * uc_cell
+        if 0 in sides:
+            atoms = uc_ldl + atoms
+            atoms.cell[d,d] += uc_cell
+        if 1 in sides:
+            atoms = atoms + uc_ldr
+            atoms.cell[d,d] += uc_cell
 
         atoms.center()
         order_atoms(atoms, direction)
@@ -101,9 +108,11 @@ def order_coordinate(arr, axes=None):
 def order_atoms(atoms, direction='x'):
 
     if direction is 'x':
-        axes = [0,2,1]
+        axes = [0,1,2]
     elif direction is 'y':
         axes = [1,0,2]
+    elif direction is 'z':
+        axes = [2,0,1]
     else:
         raise NotImplementedError("Valid directions are: 'x' and 'y'")
 
