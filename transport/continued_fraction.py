@@ -54,8 +54,6 @@ def zero_fermi(nzp):
 
 def integrate_dos(G, mu=0, T=300, nzp=100, R=1e10):
 
-    from scipy.constants import e, k
-
     zp, Rp = zero_fermi(nzp)
     N = nzp
 
@@ -82,8 +80,6 @@ def integrate_dos(G, mu=0, T=300, nzp=100, R=1e10):
 
 def integrate_pdos(G, mu=0, T=300, nzp=100, R=1e10):
 
-    from scipy.constants import e, k
-
     zp, Rp = zero_fermi(nzp)
     N = nzp
 
@@ -95,13 +91,13 @@ def integrate_pdos(G, mu=0, T=300, nzp=100, R=1e10):
     G.eta = complex(0.)
 
     R = 1e10
-    SGS = G.S @ G.apply_overlap(1j*R)
-    mu_0 = 1j*R * SGS.diagonal() / G.S.diagonal()
+    #SGS = G.S @ G.apply_overlap(1j*R)
+    mu_0 = 1j*R * G.apply_overlap(1j*R, diag=True) #SGS.diagonal() / G.S.diagonal()
 
     mu_1 = np.zeros(len(mu_0),complex)
     for i in range(N):
-        SGS = G.S @ G.apply_overlap(a_p[i])
-        mu_1 += SGS.diagonal() / G.S.diagonal() * Rp[i]
+        #SGS = G.S @ G.apply_overlap(a_p[i])
+        mu_1 += G.apply_overlap(a_p[i], diag=True) * Rp[i] #SGS.diagonal() / G.S.diagonal() * Rp[i]
     mu_1 *= -1j*4/beta
 
     rho = np.real(mu_0) + np.imag(mu_1)

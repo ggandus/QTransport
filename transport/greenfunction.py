@@ -310,7 +310,6 @@ class RecursiveGF(CoupledHamiltonian):
             return GS_i
         return GS_qii
 
-
     def dos(self, energy):
         GS = self.apply_overlap(energy, trace=True)
         return - GS.imag / np.pi

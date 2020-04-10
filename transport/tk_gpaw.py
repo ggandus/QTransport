@@ -111,6 +111,17 @@ def get_bf_centers(atoms, basis=None):
         pos_ic.extend(pos[None].repeat(nao, 0))
     return np.array(pos_ic)
 
+def sum_bf_atom(calc, X_i):
+    '''Sum basis functions on the same atom.'''
+    n_a = len(calc.atoms)
+    X_a = np.zeros(n_a, dtype=X_i.dtype)
+    i0 = 0
+    for a0 in range(n_a):
+        i1 = i0 + calc.wfs.setups[a0].nao
+        X_a[a0] = sum(X_i[i0:i1])
+        i0 = i1
+    return X_a
+
 def flatten(iterables):
     return (elem for iterable in iterables for elem in iterable)
 
