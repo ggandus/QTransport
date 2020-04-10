@@ -6,9 +6,9 @@ from .block import block
 from scipy import linalg as la
 
 def initialize_calculator(calc):
+    calc.atoms.set_calculator(calc)
     if calc.wfs.S_qMM is None:
         # Initialize calculator
-        calc.atoms.set_calculator(calc)
         calc.wfs.set_positions(calc.spos_ac)
 
 def get_atom_indices(calc, a):
