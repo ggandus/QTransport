@@ -111,9 +111,10 @@ def get_bf_centers(atoms, basis=None):
         pos_ic.extend(pos[None].repeat(nao, 0))
     return np.array(pos_ic)
 
-def sum_bf_atom(calc, X_i):
+def sum_bf_atom(calc, X_i, n_a=0):
     '''Sum basis functions on the same atom.'''
-    n_a = len(calc.atoms)
+    if n_a == 0:
+        n_a = len(calc.atoms)
     X_a = np.zeros(n_a, dtype=X_i.dtype)
     i0 = 0
     for a0 in range(n_a):

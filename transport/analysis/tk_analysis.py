@@ -43,6 +43,8 @@ def plot_mol_wavefunctions(calc, atoms_i, ao_j, v_jj, e_j, spin=0):
     nao = calc.wfs.setups.nao
     nk = len(calc.wfs.kd.ibzk_kc)          #number of kpoints
 
+    psi_jg = [None for _ in range(len(ao_j))]
+
     for ii in ao_j:
         p1 = v_jj[:,ii]
         n1,cc = 0,0
@@ -60,40 +62,51 @@ def plot_mol_wavefunctions(calc, atoms_i, ao_j, v_jj, e_j, spin=0):
         psi_g = psi_g.reshape(1, -1)             #reshape psi_g to get a vector
         calc.wfs.basis_functions.lcao_to_grid(psi, psi_g, q=0)
         psi_g = psi_g.reshape(ss)                #resreo original shape
-
-        # write output
         write('orb_%1.4f_spin_%i.cube' %(e_j[ii].real,spin), atoms, data=psi_g[0])
         print('Cube files generated')
         print('.....done!')
 
-def plot_mol_electrondensity(calc, atoms_i, ao_j, v_jj, e_j, spin=0):
-
-    atoms = calc.atoms
-    nao = calc.wfs.setups.nao
-    nk = len(calc.wfs.kd.ibzk_kc)          #number of kpoints
-
-    for ii in ao_j:
-        p1 = v_jj[:,ii]
-        n1,cc = 0,0
-        psi = np.zeros([nk,nao])  #initialize psi matrix
-        for i in range(len(atoms)):
-            if i in atoms_i:                   #if i is atom list
-                no = calc.wfs.setups[i].nao #get bfs on atom i
-                n2 = n1 + no                     #max wfs in psi
-                psi[0,n1:n2] = p1[cc:cc+no]      #add coefficients of molecular subspace to list
-                cc += no                         #set start for next loop
-            n1 += calc.wfs.setups[i].nao    #min wfs in psi (for next step)
-        psi = psi.reshape(1,-1)                  #reshape psi to get a vector
-        psi_g = calc.wfs.gd.zeros(nk, dtype=calc.wfs.dtype) #initialize
-        ss = psi_g.shape                         #get dimensions of psi_g
-        psi_g = psi_g.reshape(1, -1)             #reshape psi_g to get a vector
-        calc.wfs.basis_functions.lcao_to_grid(psi, psi_g, q=0)
-        psi_g = psi_g.reshape(ss)                #resreo original shape
-
+# def get_density(calc, pdos):
+#     pass
+#         psi_jg[ii] = psi_g
+#
+#     return psi_jg
+#
+# def plot_mol_wavefunctions(calc, atoms_i, ao_j, v_jj, e_j, spin=0):
+#     psi_jg = get_wavefunctions(calc, atoms_i, ao_j, v_jj, e_j, spin)
+#     for ii in ao_j:
+#         psi_g = psi_jg[ii]
         # write output
-        write('orb_%1.4f_spin_%i.cube' %(e_j[ii].real,spin), atoms, data=np.real(psi_g[0])**2)
-        print('Cube files generated')
-        print('.....done!')
+
+
+# def plot_mol_electrondensity(calc, atoms_i, ao_j, v_jj, e_j, spin=0):
+#
+#     atoms = calc.atoms
+#     nao = calc.wfs.setups.nao
+#     nk = len(calc.wfs.kd.ibzk_kc)          #number of kpoints
+#
+#     for ii in ao_j:
+#         p1 = v_jj[:,ii]
+#         n1,cc = 0,0
+#         psi = np.zeros([nk,nao])  #initialize psi matrix
+#         for i in range(len(atoms)):
+#             if i in atoms_i:                   #if i is atom list
+#                 no = calc.wfs.setups[i].nao #get bfs on atom i
+#                 n2 = n1 + no                     #max wfs in psi
+#                 psi[0,n1:n2] = p1[cc:cc+no]      #add coefficients of molecular subspace to list
+#                 cc += no                         #set start for next loop
+#             n1 += calc.wfs.setups[i].nao    #min wfs in psi (for next step)
+#         psi = psi.reshape(1,-1)                  #reshape psi to get a vector
+#         psi_g = calc.wfs.gd.zeros(nk, dtype=calc.wfs.dtype) #initialize
+#         ss = psi_g.shape                         #get dimensions of psi_g
+#         psi_g = psi_g.reshape(1, -1)             #reshape psi_g to get a vector
+#         calc.wfs.basis_functions.lcao_to_grid(psi, psi_g, q=0)
+#         psi_g = psi_g.reshape(ss)                #resreo original shape
+#
+#         # write output
+#         write('orb_%1.4f_spin_%i.cube' %(e_j[ii].real,spin), atoms, data=np.real(psi_g[0])**2)
+#         print('Cube files generated')
+#         print('.....done!')
 
 def display_blocks(h_mm, lines, precision=0.1, **kwargs):
     '''Plot helper for subdiagonalized and ordered matrices.'''
