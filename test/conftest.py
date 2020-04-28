@@ -13,7 +13,8 @@ from transport.lcao.principallayer import PrincipalSelfEnergy
 
 test_filename = {'transmission': 'ET.pckl',
                  'dos': 'ED.pckl',
-                 'nelectrons': 'N.pckl'}
+                 'nelectrons': 'N.pckl',
+				 'density': 'rho.pckl'}
 test_types = test_filename.keys()
 
 def get_prefix(prefix):

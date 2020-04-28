@@ -6,7 +6,7 @@ from .tools import dagger
 
 #Recursive GreenFunction helpers
 from .solvers.tridiagonal   import tridiagonalize, cutoff
-from .solvers.recursive import get_mat_lists, recursive_gf, multiply
+from .solvers.recursive import * #get_mat_lists, recursive_gf, multiply
 
 #Density integral
 from .continued_fraction import integrate_pdos
@@ -303,14 +303,7 @@ class RecursiveGF(CoupledHamiltonian):
         if trace:
             return sum(GS.trace() for GS in GS_qii)
         if diag:
-            nao = sum(len(GS) for GS in GS_qii)
-            GS_i = np.zeros(nao, GS_qii[0].dtype)
-            # Loop over diagonal elements
-            i0 = 0
-            for GS_ii in GS_qii:
-                i1 = i0 + len(GS_ii)
-                GS_i[i0:i1] = GS_ii.diagonal()
-                i0 = i1
+            GS_i = get_diagonal(GS_qii)
             return GS_i
         return GS_qii
 
@@ -319,20 +312,8 @@ class RecursiveGF(CoupledHamiltonian):
         return - GS.imag / np.pi
 
     def pdos(self, energy):
-        # p = self.parameters
-        # calc = p['calc']
-        # n_a = len(calc.atoms)
-        # Diagonal elements of GS product
         GS_i = self.apply_overlap(energy, diag=True).imag
         return - GS_i / np.pi
-        # Sum diagonal elements per atoms
-        # GS_a = np.zeros(n_a)
-        # i0 = 0
-        # for a0 in range(n_a):
-        #     i1 = i0 + calc.wfs.setups[a0].nao
-        #     GS_a[a0] = sum(GS_i[i0:i1])
-        #     i0 = i1
-        # return - GS_a / np.pi
 
     def density(self, T=300, nzp=50, energies=None):
         p = self.parameters
@@ -350,3 +331,12 @@ class RecursiveGF(CoupledHamiltonian):
             for e, energy in energies:
                 rho[e] = sum_bf_atom(calc, self.pdos(energy))
         return rho
+
+    def add_screening(self, V):
+        self.V = V
+        h_qii = self.hs_list_ii[0]
+        add_diagonal(h_qii, V)
+
+    def remove_screening(self):
+        h_qii = self.hs_list_ii[0]
+        add_diagonal(h_qii, -self.V)
