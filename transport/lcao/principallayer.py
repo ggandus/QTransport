@@ -4,12 +4,19 @@ from collections import namedtuple
 # from gpaw.symmetry import Symmetry
 from ase.dft.kpoints import monkhorst_pack
 from ase import units
+
 from .tk_lcao import *
-from transport.tk_gpaw import get_bf_centers, get_bfs_indices, \
-                             flatten, initialize_calculator
+
+from transport.tk_gpaw import *
+# from transport.tk_gpaw import *get_bf_centers, get_bfs_indices, \
+#                              flatten, initialize_calculator
 from transport.tools import rotate_matrix, dagger, get_subspace
 from transport.selfenergy import LeadSelfEnergy
 from transport.block import get_toeplitz
+
+#Density integral
+from transport.continued_fraction import integrate_pdos
+# from transport.tk_gpaw import sum_bf_atom
 
 class PrincipalLayer:
 
@@ -463,8 +470,23 @@ class PrincipalSelfEnergy(PrincipalLayer):
         else:
             G = self.get_G(energy)
             S = self.S
-            SGS = np.dot(S, G.dot(S))
-            return -(SGS.diagonal() / S.diagonal()).imag / np.pi
+            return -G.dot(S).imag.diagonal() / np.pi
+            #
+            # SGS = np.dot(S, G.dot(S))
+            # return -(SGS.diagonal() / S.diagonal()).imag / np.pi
+
+    def density(self, energies=None):
+        scatt = self.scatt
+        n_a = self.natoms
+        if energies is None:
+            pdos = integrate_pdos(self)
+            rho = sum_bf_atom(scatt, pdos, n_a)
+        else:
+            energies = np.array(energies, ndmin=1)
+            rho = np.zeros((energies, n_a))
+            for e, energy in energies:
+                rho[e] = sum_bf_atom(scalc, self.pdos(energy))
+        return rho
 
 
     ####### CONVENIENT ALISES ########

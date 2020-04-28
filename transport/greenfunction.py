@@ -8,6 +8,10 @@ from .tools import dagger
 from .solvers.tridiagonal   import tridiagonalize, cutoff
 from .solvers.recursive import get_mat_lists, recursive_gf, multiply
 
+#Density integral
+from .continued_fraction import integrate_pdos
+from .tk_gpaw import sum_bf_atom
+
 
 class GreenFunction(CoupledHamiltonian):
     """Equilibrium retarded Green function."""
@@ -315,16 +319,34 @@ class RecursiveGF(CoupledHamiltonian):
         return - GS.imag / np.pi
 
     def pdos(self, energy):
+        # p = self.parameters
+        # calc = p['calc']
+        # n_a = len(calc.atoms)
+        # Diagonal elements of GS product
+        GS_i = self.apply_overlap(energy, diag=True).imag
+        return - GS_i / np.pi
+        # Sum diagonal elements per atoms
+        # GS_a = np.zeros(n_a)
+        # i0 = 0
+        # for a0 in range(n_a):
+        #     i1 = i0 + calc.wfs.setups[a0].nao
+        #     GS_a[a0] = sum(GS_i[i0:i1])
+        #     i0 = i1
+        # return - GS_a / np.pi
+
+    def density(self, T=300, nzp=50, energies=None):
         p = self.parameters
         calc = p['calc']
         n_a = len(calc.atoms)
-        # Diagonal elements of GS product
-        GS_i = self.apply_overlap(energy, diag=True).imag
-        # Sum diagonal elements per atoms
-        GS_a = np.zeros(n_a)
-        i0 = 0
-        for a0 in range(n_a):
-            i1 = i0 + calc.wfs.setups[a0].nao
-            GS_a[a0] = sum(GS_i[i0:i1])
-            i0 = i1
-        return - GS_a / np.pi
+
+        if energies is None:
+        #Complex contour sum
+            pdos = integrate_pdos(self)
+            rho = sum_bf_atom(calc, pdos)
+        else:
+        #rho[e]
+            energies = np.array(energies, ndmin=1)
+            rho = np.zeros((energies, n_a))
+            for e, energy in energies:
+                rho[e] = sum_bf_atom(calc, self.pdos(energy))
+        return rho
