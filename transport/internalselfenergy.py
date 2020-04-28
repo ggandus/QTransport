@@ -63,6 +63,15 @@ class InternalSelfEnergy(CoupledHamiltonian):
         """
         return la.solve(self.get_Ginv(energy), X)
 
+    def apply_overlap(self, energy, trace=False, diag=False):
+        """Apply retarded Green function to S."""
+        GS = self.apply_retarded(energy, self.S)
+        if trace:
+            return np.trace(GS)
+        if diag:
+            return GS.diagonal()
+        return GS
+
     def dos(self, energy):
         """Total density of states -1/pi Im(Tr(GS))"""
         if self.S is None:
