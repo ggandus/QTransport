@@ -159,6 +159,7 @@ def multiply(A_qii, A_qij, A_qji, B_qii, B_qij, B_qji):
     return AB_qii
 
 def add_diagonal(A_qii, V):
+    i0 = 0
     for A_ii in A_qii:
         i1 = i0 + len(A_ii)
         A_ii.flat[:: len(A_ii) + 1] += V[i0:i1]

@@ -224,6 +224,7 @@ class RecursiveGF(CoupledHamiltonian):
             selfenergy.sigma_mm = np.empty((selfenergy.nbf_i, selfenergy.nbf_i),
                                             dtype=selfenergy.sigma_mm.dtype)
 
+        self.nbf = sum(h.shape[0] for h in self.hs_list_ii[0])
         self.initialized = True
 
 
@@ -333,10 +334,17 @@ class RecursiveGF(CoupledHamiltonian):
         return rho
 
     def add_screening(self, V):
-        self.V = V
+        if not hasattr(self, 'V'):
+            self.V = np.zeros(self.nbf)
+        assert V.size == self.nbf
+        #Add screening and remove (if exists) current.
         h_qii = self.hs_list_ii[0]
-        add_diagonal(h_qii, V)
+        if sum(self.V) != 0:
+            add_diagonal(h_qii, - self.V)
+        self.V[:] = V
+        add_diagonal(h_qii, self.V)
 
     def remove_screening(self):
         h_qii = self.hs_list_ii[0]
         add_diagonal(h_qii, -self.V)
+        self.V[:] = 0.
