@@ -228,19 +228,6 @@ class RecursiveGF(CoupledHamiltonian):
         self.initialized = True
 
 
-    def _get_mat_lists(self, energy):
-        z = energy + self.eta * 1.j
-        if self.selfenergies:
-            sigma_L = self.selfenergies[0].retarded(energy)
-            sigma_R = self.selfenergies[1].retarded(energy)
-        else:
-            sigma_L = None
-            sigma_R = None
-        # mat_list_ii, mat_list_ij, mat_list_ji
-        return get_mat_lists(z, self.hs_list_ii, self.hs_list_ij,
-                             self.hs_list_ji, sigma_L, sigma_R)
-
-
     def get_g1N(self, energy):
         #
         if energy != self.energy:
@@ -251,6 +238,7 @@ class RecursiveGF(CoupledHamiltonian):
             self.g1N = recursive_gf(*mat_lists)#_ii, mat_list_ij, mat_list_ji)
 
         return self.g1N
+
 
     def get_transmission(self, energies, T_e=None):
 
@@ -267,24 +255,35 @@ class RecursiveGF(CoupledHamiltonian):
 
         return T_e
 
-    def apply_retarded(self, energy, X_qii, X_qij, X_qji, X_1N=None):
-        """Apply retarded Green function to X in tridiagonal form."""
 
-        N = len(self.hs_list_ii[0])
-        # X_qji = [x.T.conj() for x in X_qij]
+    def retarded(self, energy, trace=False, diag=False):
 
         gr_1N, G_qii, G_qij, G_qji = recursive_gf(*self._get_mat_lists(energy),
                                                    dos=True)
 
+        return self._return(G_qii, G_qij, G_qji, trace=trace, diag=diag)
+
+
+    def lesser(self, energy, fL, fR, trace=False, diag=False):
+
+        sL_in = self.selfenergies[0].get_lambda(energy) * fL
+        sR_in = self.selfenergies[1].get_lambda(energy) * fR
+
+        s_in = [sL_in, sR_in]
+
+        Gn_qii, Gn_qij, Gn_qji = recursive_gf(*self._get_mat_lists(energy),
+                                               s_in=s_in)
+
+        return self._return(Gn_qii, Gn_qij, Gn_qji, trace=trace, diag=diag)
+
+
+
+    def apply_retarded(self, energy, X_qii, X_qij, X_qji):#, X_1N=None):
+        """Apply retarded Green function to X in tridiagonal form."""
+
+        G_qii, G_qij, G_qji = self.retarded(energy)
 
         GX_qii = multiply(G_qii, G_qij, G_qji, X_qii, X_qij, X_qji)
-
-        # Periodic boundary conditions
-        if X_1N is not None:
-            # GX[0]  += gr_1N * X_N1
-            GX_qii[0][:] += gr_1N @ X_1N.T
-            # GX[-1] += gr_N1 * X_1N
-            GX_qii[-1][:] += gr_1N.T @ X_1N
 
         return GX_qii
 
@@ -292,46 +291,21 @@ class RecursiveGF(CoupledHamiltonian):
         S_qii = self.hs_list_ii[1]
         S_qij = self.hs_list_ij[1]
         S_qji = self.hs_list_ji[1]
-        # Open boundary conditions
-        if self.selfenergies:
-            S_1N = None
-        # Periodic boundary conditions
-        else:
-            # The Green function changes as well.
-            raise NotImplementedError('Periodic boundary conditions not implemented')
-            # S_1N = self.S_1N
-        GS_qii = self.apply_retarded(energy, S_qii, S_qij, S_qji, S_1N)
-        if trace:
-            return sum(GS.trace() for GS in GS_qii)
-        if diag:
-            GS_i = get_diagonal(GS_qii)
-            return GS_i
-        return GS_qii
+
+        GS_qii = self.apply_retarded(energy, S_qii, S_qij, S_qji)#, S_1N)
+
+        return self._return(GS_qii, trace=trace, diag=diag)
+
 
     def dos(self, energy):
         GS = self.apply_overlap(energy, trace=True)
         return - GS.imag / np.pi
 
+
     def pdos(self, energy):
         GS_i = self.apply_overlap(energy, diag=True).imag
         return - GS_i / np.pi
 
-    def density(self, T=300, nzp=50, energies=None):
-        p = self.parameters
-        calc = p['calc']
-        n_a = len(calc.atoms)
-
-        if energies is None:
-        #Complex contour sum
-            pdos = integrate_pdos(self)
-            rho = sum_bf_atom(calc, pdos)
-        else:
-        #rho[e]
-            energies = np.array(energies, ndmin=1)
-            rho = np.zeros((energies, n_a))
-            for e, energy in energies:
-                rho[e] = sum_bf_atom(calc, self.pdos(energy))
-        return rho
 
     def add_screening(self, V):
         if not hasattr(self, 'V'):
@@ -344,7 +318,33 @@ class RecursiveGF(CoupledHamiltonian):
         self.V[:] = V
         add_diagonal(h_qii, self.V)
 
+
     def remove_screening(self):
         h_qii = self.hs_list_ii[0]
         add_diagonal(h_qii, -self.V)
         self.V[:] = 0.
+
+    ## Helper functions
+
+
+    def _get_mat_lists(self, energy):
+        z = energy + self.eta * 1.j
+        if self.selfenergies:
+            sigma_L = self.selfenergies[0].retarded(energy)
+            sigma_R = self.selfenergies[1].retarded(energy)
+        else:
+            sigma_L = None
+            sigma_R = None
+        # mat_list_ii, mat_list_ij, mat_list_ji
+        return get_mat_lists(z, self.hs_list_ii, self.hs_list_ij,
+                             self.hs_list_ji, sigma_L, sigma_R)
+
+
+    def _return(self, *args, trace, diag):
+
+        if trace:
+            return sum(A.trace() for A in args[0])
+        elif diag:
+            return get_diagonal(args[0])
+        else:
+            return args
