@@ -30,7 +30,8 @@ def get_data():
         scalc = GPAW(prefix+'scatt.gpw',txt=None)
         pcalc = GPAW(prefix+'leads.gpw',txt=None)
         h, s  = load_pickle(prefix+'hs_scat.pckl')
-        return scalc, pcalc, h, s
+        h1_k, s1_k  = load_pickle(prefix+'hs1_k.pckl')
+        return scalc, pcalc, h, s, h1_k, s1_k
     return inner
 
 @pytest.fixture(scope='module')
@@ -49,10 +50,10 @@ def get_expected():
 def setup(get_data):
     # Get data
     def inner(method, prefix):
-        scalc, pcalc, h, s = get_data(prefix)
+        scalc, pcalc, h, s, h1_k, s1_k = get_data(prefix)
         # Initialize selfenergies
-        PS = [PrincipalSelfEnergy(pcalc, scatt=scalc, id=0), # Left
-              PrincipalSelfEnergy(pcalc, scatt=scalc, id=1)] # Right
+        PS = [PrincipalSelfEnergy(pcalc, scatt=scalc.atoms, id=0), # Left
+              PrincipalSelfEnergy(pcalc, scatt=scalc.atoms, id=1)] # Right
         # Initialize calculator from greenfunction
         if method == 'from_gf':
             GF = GreenFunction(h.astype(complex),
@@ -70,6 +71,8 @@ def setup(get_data):
             # GF.set(calc=scalc)
             tcalc = TransportCalculator(greenfunction=GF,
                                         selfenergies=PS,
+                                        h1_k=h1_k,
+                                        s1_k=s1_k,
                                         align_bf=0) # Align GF
         # Initialize calculator from Hamiltonian and Overlap
         elif method == 'from_hs':

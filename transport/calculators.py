@@ -99,6 +99,8 @@ class TransportCalculator:
                                  'sc2': None,
                                  'selfenergies': None,
                                  'greenfunction': None,
+                                 'h1_k': None,
+                                 's1_k': None,
                                  'box': None,
                                  'align_bf': None,
                                  'eta1': 1e-5,
@@ -163,7 +165,7 @@ class TransportCalculator:
             for eta, selfenergy in zip([p['eta1'], p['eta2']],
                                         self.selfenergies):
                 selfenergy.set(eta=eta)
-                selfenergy.initialize()
+                selfenergy.initialize(p['h1_k'], p['s1_k'])
                 # selfenergy.eta = eta
 
         if p['greenfunction'] is None:

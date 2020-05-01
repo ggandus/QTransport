@@ -380,8 +380,8 @@ class PrincipalSelfEnergy(PrincipalLayer):
         nbf_i = self.calc.setups.nao * len(self.R_cN.T)
         if self.scatt:
             self.natoms = len(self.calc.atoms) * len(self.R_cN.T)
-            self.set_order(self.scatt.atoms[:self.natoms])
-            nbf_m = self.scatt.setups.nao
+            self.set_order(self.scatt[:self.natoms])
+            nbf_m = nbf_i #* self.scatt.setups.nao
         else:
             nbf_m = nbf_i
 
