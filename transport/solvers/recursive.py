@@ -36,7 +36,7 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
         gr_1i = gr_1i @ m_qij[q - 1] @ grL_qii[q]
 
     # Only transport
-    if not dos:
+    if (not dos) or (s_in is None):
         # Return g1N
         return gr_1i
 

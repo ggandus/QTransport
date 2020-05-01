@@ -26,11 +26,13 @@ if __name__=='__main__':
     import sys
     from os.path import basename
     filename = sys.argv[1]
+    pl1 = int(sys.argv[2])
+    pl2 = pl1 if len(sys.argv)==3 else int(sys.argv[3])
     calc=GPAW(filename, txt=None)
     h, s=get_h_and_s(calc)
     hs_list_ii, hs_list_ij = tridiagonalize(
                                        calc, h, s,
                                        pl1, pl2, cutoff)
     pickle.dump((hs_list_ii, hs_list_ij),
-            open('hs_{}.pckl'.format(basename(filename).split('.')[0]),'wb'),
+            open('hs_{}_lists.pckl'.format(basename(filename).split('.')[0]),'wb'),
                 2)

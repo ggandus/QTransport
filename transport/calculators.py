@@ -101,6 +101,8 @@ class TransportCalculator:
                                  'greenfunction': None,
                                  'h1_k': None,
                                  's1_k': None,
+                                 'hs_qii': None,
+                                 'hs_qij': None,
                                  'box': None,
                                  'align_bf': None,
                                  'eta1': 1e-5,
@@ -175,7 +177,7 @@ class TransportCalculator:
             # Initialize greenfunction
             self.greenfunction.set(align_bf=p['align_bf'],
                                    eta=p['eta'])
-            self.greenfunction.initialize()
+            self.greenfunction.initialize(p['hs_qii'], p['hs_qij'])
             # self.greenfunction.align_bf(align_bf)
 
 

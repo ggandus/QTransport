@@ -15,7 +15,7 @@ def test_transmission(prefix, method, get_expected, setup):
     tcalc.initialize()
     tcalc.set(energies=np.arange(-2,-1.8,0.05))
     tcalc.update()
-    assert tcalc.greenfunction.H[0,0]==tcalc.selfenergies[0].h_ii[0,0]
+    # assert tcalc.greenfunction.H[0,0]==tcalc.selfenergies[0].h_ii[0,0]
     assert np.allclose(E,tcalc.energies)
     assert np.allclose(T,tcalc.T_e)
 

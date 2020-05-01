@@ -152,7 +152,7 @@ class GreenFunction(CoupledHamiltonian):
 
 class RecursiveGF(CoupledHamiltonian):
 
-    def __init__(self, H, S=None, selfenergies=[], **kwargs):
+    def __init__(self, H=None, S=None, selfenergies=[], **kwargs):
 
         super().__init__(H, S, selfenergies)
 
@@ -180,7 +180,7 @@ class RecursiveGF(CoupledHamiltonian):
 
         self.parameters.update(kwargs)
 
-    def initialize(self):#, calc, pl1, pl2=None, cutoff=cutoff, align_bf=None):
+    def initialize(self, hs_list_ii=None, hs_list_ij=None):#, calc, pl1, pl2=None, cutoff=cutoff, align_bf=None):
         '''
             calc: scattering calculator
             pl1: # of bfs left principal layer
@@ -205,14 +205,17 @@ class RecursiveGF(CoupledHamiltonian):
         #Set eta
         self.eta = p['eta']
 
+        if hs_list_ii is None:
+            #Construct block tridiagonal lists
+            self.hs_list_ii, self.hs_list_ij = tridiagonalize(
+                                               calc, self.H, self.S,
+                                               pl1, pl2, cutoff)
+        else:
+            self.hs_list_ii, self.hs_list_ij = hs_list_ii, hs_list_ij
+
         #Align first basis funciton for Left lead
         if align_bf is not None:
             self.align_bf(align_bf)
-
-        #Construct block tridiagonal lists
-        self.hs_list_ii, self.hs_list_ij = tridiagonalize(
-                                           calc, self.H, self.S,
-                                           pl1, pl2, cutoff)
 
         self.hs_list_ji = [[h.T for h in self.hs_list_ij[0]],
                            [s.T for s in self.hs_list_ij[1]]]
@@ -227,6 +230,16 @@ class RecursiveGF(CoupledHamiltonian):
         self.nbf = sum(h.shape[0] for h in self.hs_list_ii[0])
         self.initialized = True
 
+    def align_bf(self, bf):
+        h1 = self.selfenergies[0].h_ii
+        h_qii, s_qii = self.hs_list_ii
+        h_qij, s_qij = self.hs_list_ij
+        n = len(h_qii)
+        diff = (h_qii[0][bf, bf] - h1[bf, bf].real) / s_qii[0][bf, bf]
+        for q in range(n):
+            h_qii[q] -= diff * s_qii[q]
+        for q in range(n-1):
+            h_qij[q] -= diff * s_qij[q]
 
     def get_g1N(self, energy):
         #
@@ -272,7 +285,7 @@ class RecursiveGF(CoupledHamiltonian):
         s_in = [sL_in, sR_in]
 
         Gn_qii, Gn_qij, Gn_qji = recursive_gf(*self._get_mat_lists(energy),
-                                               s_in=s_in)
+                                               s_in=s_in, dos=True)
 
         return self._return(Gn_qii, Gn_qij, Gn_qji, trace=trace, diag=diag)
 
