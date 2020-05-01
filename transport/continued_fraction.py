@@ -3,6 +3,12 @@ import scipy.linalg as la
 # Physical quantities
 from scipy.constants import e, k
 
+
+'''References:
+
+http://www1.spms.ntu.edu.sg/~ydchong/teaching/08_contour_integration.pdf
+'''
+
 def zero_fermi(nzp):
     '''Compute poles (zp) and residues (Rp) of fermi function.'''
     N = nzp

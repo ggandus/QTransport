@@ -66,9 +66,19 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
         gnL_qii = grL_qii[0] @ s_in[0] @ dagger(grL_qii[0])
 
         # Left connected recursion
-        for q in range(1, N):
+        if len(s_in) == 2:
+            # Leads only
+            for q in range(1, N-1):
+                sl = m_qji[q - 1] @ gnL_qii[q - 1] @ m_qij[q - 1]
+                gnL_qii[q] = grL_qii[q] @ sl @ dagger(grL_N[q])
+            q = N-1
             sl = m_qji[q - 1] @ gnL_qii[q - 1] @ m_qij[q - 1]
-            gnL_qii[q] = grL_qii[q] @ (s_in[q] + sl) @ dagger(grL_N[q])
+            gnL_qii[q] = grL_qii[q] @ (s_in[1] + sl) @ dagger(grL_N[q])
+        else:
+            # e.g. phonon
+            for q in range(1, N):
+                sl = m_qji[q - 1] @ gnL_qii[q - 1] @ m_qij[q - 1]
+                gnL_qii[q] = grL_qii[q] @ (s_in[q] + sl) @ dagger(grL_N[q])
 
         Gn_qii = [None for _ in range(N)]
         Gn_qij = [None for _ in range(N-1)]
