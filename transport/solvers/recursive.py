@@ -36,7 +36,7 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
         gr_1i = gr_1i @ m_qij[q - 1] @ grL_qii[q]
 
     # Only transport
-    if (not dos) or (s_in is None):
+    if not dos:
         # Return g1N
         return gr_1i
 
@@ -63,22 +63,13 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
 
         gnL_qii = [None for _ in range(N)]
         # Initalize
-        gnL_qii = grL_qii[0] @ s_in[0] @ dagger(grL_qii[0])
+        gnL_qii[0] = grL_qii[0] @ s_in[0] @ np.conj(grL_qii[0])
 
         # Left connected recursion
-        if len(s_in) == 2:
-            # Leads only
-            for q in range(1, N-1):
-                sl = m_qji[q - 1] @ gnL_qii[q - 1] @ m_qij[q - 1]
-                gnL_qii[q] = grL_qii[q] @ sl @ dagger(grL_N[q])
-            q = N-1
-            sl = m_qji[q - 1] @ gnL_qii[q - 1] @ m_qij[q - 1]
-            gnL_qii[q] = grL_qii[q] @ (s_in[1] + sl) @ dagger(grL_N[q])
-        else:
-            # e.g. phonon
-            for q in range(1, N):
-                sl = m_qji[q - 1] @ gnL_qii[q - 1] @ m_qij[q - 1]
-                gnL_qii[q] = grL_qii[q] @ (s_in[q] + sl) @ dagger(grL_N[q])
+        for q in range(1, N):
+            sl = m_qji[q - 1] @ gnL_qii[q - 1] @ np.conj(m_qij[q - 1])
+            if s_in[q] is not None: sl += s_in[q]
+            gnL_qii[q] = grL_qii[q] @ sl @ np.conj(grL_qii[q])
 
         Gn_qii = [None for _ in range(N)]
         Gn_qij = [None for _ in range(N-1)]
@@ -88,13 +79,13 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
 
         # Full recursion
         for q in range(N-2, -1, -1):
-            a = Gn_qii[q + 1] @ dagger(m_qji[q]) @ dagger(grL_qii[q])
-            Gn_qij[q] = - Gr_qii[q + 1] @ m_qji[q] @ gnL_qii[q] - a
+            a = Gn_qii[q + 1] @ np.conj(m_qji[q]) @ np.conj(grL_qii[q])
+            Gn_qji[q] = - Gr_qii[q + 1] @ m_qji[q] @ gnL_qii[q] - a
             Gn_qii[q] = gnL_qii[q] + \
                         grL_qii[q] @ m_qij[q] @  a - \
-                        gnL_qii[q] @ dagger(m_qij[q]) @ dagger(Gr_qji[q]) - \
+                        gnL_qii[q] @ np.conj(m_qij[q]) @ np.conj(Gr_qji[q]) - \
                         Gr_qij[q] @ m_qji[q] @ gnL_qii[q]
-            Gn_qji = dagger(Gn_qij[q])
+            Gn_qij[q] = dagger(Gn_qji[q])
 
     # Return electron correlation
     return Gn_qii, Gn_qij, Gn_qji

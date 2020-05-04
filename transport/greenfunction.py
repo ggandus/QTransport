@@ -228,6 +228,7 @@ class RecursiveGF(CoupledHamiltonian):
                                             dtype=selfenergy.sigma_mm.dtype)
 
         self.nbf = sum(h.shape[0] for h in self.hs_list_ii[0])
+        self.N = len(self.hs_list_ii[0])
         self.initialized = True
 
     def align_bf(self, bf):
@@ -279,10 +280,10 @@ class RecursiveGF(CoupledHamiltonian):
 
     def lesser(self, energy, fL, fR, trace=False, diag=False):
 
-        sL_in = self.selfenergies[0].get_lambda(energy) * fL
-        sR_in = self.selfenergies[1].get_lambda(energy) * fR
+        s_in = [None for _ in range(self.N)]
 
-        s_in = [sL_in, sR_in]
+        s_in[0] = self.selfenergies[0].get_lambda(energy) * fL
+        s_in[-1] = self.selfenergies[1].get_lambda(energy) * fR
 
         Gn_qii, Gn_qij, Gn_qji = recursive_gf(*self._get_mat_lists(energy),
                                                s_in=s_in, dos=True)
