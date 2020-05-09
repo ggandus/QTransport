@@ -233,7 +233,8 @@ class PrincipalLayer:
         A_NMM = self.bloch_to_real_space_t(A_kMM)
 
         # The new dimension (x) equals M \times the number of rows
-        A_xx = get_toeplitz(rows=A_NMM)
+        # A_xx = get_toeplitz(rows=A_NMM)
+        A_xx = build_surface(self.Nr_c, A_NMM)
 
         return A_xx
 

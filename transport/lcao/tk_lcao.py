@@ -54,3 +54,28 @@ def h_and_s(calc):
     S_kMM = np.array(S_kMM)
 
     return H_kMM, S_kMM
+
+def build_surface(N_c, A_NMM):
+
+    n_r, M, N = A_NMM.shape
+    dtype = A_NMM.dtype
+    mat = np.zeros((n_r,M,n_r,N), dtype=dtype)
+
+    n, m = N_c
+    A_nmMM = A_NMM.reshape(n,m,M,N)
+    # Supercell row index
+    count_r = 0
+    for i,j in np.ndindex(n,m):
+        row = A_nmMM[np.ix_(np.roll(range(n),i), np.roll(range(m),j))]
+        row.shape = (n*m,M,N)
+        # Supercell column index
+        count_c = 0
+        for elem in row:
+            mat[count_r,:,count_c,:] = elem
+            # Increment column in supercell
+            count_c += 1
+        # Increment row in supercell
+        count_r += 1
+
+    mat.shape = (n_r*M,n_r*N)
+    return mat
