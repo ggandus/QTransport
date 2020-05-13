@@ -321,7 +321,8 @@ class PrincipalSelfEnergy(PrincipalLayer):
         self.parameters = {'eta': 1e-5,
                            'bias': 0,
                            # number of realspace cells. None defaults to Nk_c[t_dirs]
-                           'Nr_c': None
+                           'Nr_c': None,
+                           'nbf_m': None
                            }
 
         self.initialized = False
@@ -353,6 +354,7 @@ class PrincipalSelfEnergy(PrincipalLayer):
 
         self.eta = p['eta']
         Nr_c = p['Nr_c']
+        nbf_m = p['nbf_m']
 
         if Nr_c is not None:
             assert len(Nr_c) == 2, 'Invalid length of Nr_c. It must be 2.'
@@ -382,7 +384,7 @@ class PrincipalSelfEnergy(PrincipalLayer):
         if self.scatt:
             self.natoms = len(self.calc.atoms) * len(self.R_cN.T)
             self.set_order(self.scatt[:self.natoms])
-            nbf_m = nbf_i #* self.scatt.setups.nao
+            nbf_m = nbf_m or nbf_i #* self.scatt.setups.nao
         else:
             nbf_m = nbf_i
 

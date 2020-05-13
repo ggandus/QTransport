@@ -19,6 +19,12 @@ class InternalSelfEnergy(CoupledHamiltonian):
 
         CoupledHamiltonian.__init__(self, self.h_ii, self.s_ii, self.selfenergies)
 
+    def align_bf(self, align_bf):
+        diff = super().align_bf(align_bf)
+        h_im = self.h_im
+        s_im = self.s_im
+        h_im -= diff * s_im
+
     def retarded(self, energy):
         """Return self-energy (sigma) evaluated at specified energy."""
         if energy != self.energy:
