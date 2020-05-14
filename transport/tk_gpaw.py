@@ -11,6 +11,26 @@ def initialize_calculator(calc):
         # Initialize calculator
         calc.wfs.set_positions(calc.spos_ac)
 
+def get_info(calc, attributes):
+    info = []
+    gpaw = hasattr(calc, 'wfs')
+    # From gpaw calculator
+    if gpaw:
+        initialize_calculator(calc)
+        natoms = len(calc.atoms)
+        for attr in attributes:
+            if attr in ['M_a','nao']:
+                info.append(getattr(calc.setups, attr))
+            elif attr in ['nao_a']:
+                info.append([calc.setups[a0].nao for a0 in range(natoms)])
+            else:
+                raise NotImplementedError('{}'.format(attr))
+    else:
+        # From namedtuple
+        for attr in attributes:
+            info.append(getattr(calc, attr))
+    return info
+
 def get_atom_indices(calc, a):
     if calc.wfs.S_qMM is None:
         calc.wfs.set_positions(calc.spos_ac)
@@ -41,20 +61,19 @@ def get_bfs_indices(calc, a, method='extend'):
         1. 'extend' - return flatten ao indices
         2. 'append' - return ao.shape(natoms,nao)
     """
-    if calc.wfs.S_qMM is None:
-        calc.wfs.set_positions(calc.spos_ac)
+    M_a, nao_a, nao = get_info(calc, ['M_a','nao_a','nao'])
     if isinstance(a, (int,np.int32,np.int64)):
         a = [a]
     Mvalues = []
     Mattr = getattr(Mvalues, method)
     for a0 in a:
         M = 0
-        if a0 >= len(calc.setups.M_a): # original number of atoms,
-                                       # e.g. allows calc.atoms = atoms.repeat(..)
-            a0 %= len(calc.setups.M_a)
-            M += calc.setups.nao
-        M += calc.wfs.basis_functions.M_a[a0]
-        Mattr(list(range(M, M + calc.wfs.setups[a0].nao)))
+        # if a0 >= len(M_a): # original number of atoms,
+        #                                # e.g. allows calc.atoms = atoms.repeat(..)
+        #     a0 %= len(M_a)
+        #     M += calc.setups.nao
+        M += M_a[a0]
+        Mattr(list(range(M, M + nao_a[a0])))
     return Mvalues
 
 def subdiagonalize_atoms(calc, h_ii, s_ii, a=None):
