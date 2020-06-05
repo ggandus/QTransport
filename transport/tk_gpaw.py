@@ -3,6 +3,7 @@ import numpy as np
 from .tools import subdiagonalize, get_orthonormal_subspace, \
                    get_subspace, rotate_matrix, dagger
 from .block import block
+from .tk_calc import get_info
 from scipy import linalg as la
 
 def initialize_calculator(calc):
@@ -10,26 +11,6 @@ def initialize_calculator(calc):
     if calc.wfs.S_qMM is None:
         # Initialize calculator
         calc.wfs.set_positions(calc.spos_ac)
-
-def get_info(calc, attributes):
-    info = []
-    gpaw = hasattr(calc, 'wfs')
-    # From gpaw calculator
-    if gpaw:
-        initialize_calculator(calc)
-        natoms = len(calc.atoms)
-        for attr in attributes:
-            if attr in ['M_a','nao']:
-                info.append(getattr(calc.setups, attr))
-            elif attr in ['nao_a']:
-                info.append([calc.setups[a0].nao for a0 in range(natoms)])
-            else:
-                raise NotImplementedError('{}'.format(attr))
-    else:
-        # From namedtuple
-        for attr in attributes:
-            info.append(getattr(calc, attr))
-    return info
 
 def get_atom_indices(calc, a):
     if calc.wfs.S_qMM is None:
@@ -175,7 +156,7 @@ def get_mm_ii_im(h_MM, s_MM, bfs_m, bfs_i):
     s_im = s_MM.take(bfs_i,axis=0).take(bfs_m,axis=1)
     return (h_mm, s_mm), (h_ii, s_ii), (h_im, s_im)
 
-def extract_orthogonal_subspaces(h_MM, s_MM, bfs_m, bfs_i, c_MM=None, orthogonal=True):
+def extract_orthogonal_subspaces(h_MM, s_MM, bfs_m, bfs_i, c_MM=None, orthogonal=True, apply=True):
     U1 = get_U1(bfs_m, bfs_i, c_MM, apply=True) # Modifies bfs_m, bfs_i
     h1_MM = rotate_matrix(h_MM,U1)
     s1_MM = rotate_matrix(s_MM,U1)
@@ -187,6 +168,8 @@ def extract_orthogonal_subspaces(h_MM, s_MM, bfs_m, bfs_i, c_MM=None, orthogonal
     else:
         h2_MM = h1_MM
         s2_MM = s1_MM
+    if apply is False:
+        return U1.dot(U2)
     return get_mm_ii_im(h2_MM, s2_MM, bfs_m, bfs_i)
 
 
