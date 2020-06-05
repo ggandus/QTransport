@@ -9,8 +9,10 @@ from ase.neighborlist import NeighborList
 import ase.neighborlist
 
 
-def get_filename(pattern):
+def get_filename(pattern, assert_single=False):
     filename = glob(pattern)
+    if assert_single:
+        assert len(filename)==1
     if len(filename)>1:
         filenames = [repr(tu) for tu in enumerate(filename)]
         stdout = 'Which file?\n {} \n:'.format('\n'.join(filenames))

@@ -180,8 +180,6 @@ class TightBinding(CoupledHamiltonian):
         self.H_NMM = self.bloch_to_real_space(H_kMM)
         self.S_NMM = self.bloch_to_real_space(S_kMM)
 
-        # return self.H_NMM, self.S_NMM
-
     def band_structure(self, path_kc, blochstates=False):
         """Calculate dispersion along a path in the Brillouin zone.
 
