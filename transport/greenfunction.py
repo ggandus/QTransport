@@ -133,8 +133,17 @@ class GreenFunction(CoupledHamiltonian):
             self.Ginv = np.empty(self.H.shape, complex)
         return h_pp, s_pp, c_mm
 
+    def get_spectrals(self, energy):
+        """Specral density of states incoming from leads."""
+        G_mm = self.retarded(energy)
+        lambda1_mm = self.selfenergies[0].get_lambda(energy)
+        lambda2_mm = self.selfenergies[1].get_lambda(energy)
+        A1_mm = G_mm.dot(lambda1_mm).dot(dagger(G_mm))
+        A2_mm = G_mm.dot(lambda2_mm).dot(dagger(G_mm))
 
-    def get_transmission(self, energies, T_e):
+        return A1_mm, A2_mm
+
+    def get_transmission(self, energies, T_e=None):
 
         if T_e is None:
             T_e = np.zeros(len(energies))
@@ -278,12 +287,15 @@ class RecursiveGF(CoupledHamiltonian):
         return self._return(G_qii, G_qij, G_qji, trace=trace, diag=diag)
 
 
-    def lesser(self, energy, fL, fR, trace=False, diag=False):
+    def lesser(self, energy, fL=None, fR=None, trace=False, diag=False):
 
         s_in = [None for _ in range(self.N)]
 
-        s_in[0] = self.selfenergies[0].get_lambda(energy) * fL
-        s_in[-1] = self.selfenergies[1].get_lambda(energy) * fR
+        # Allow to consider separate channels
+        if fL is not None:
+            s_in[0] = self.selfenergies[0].get_lambda(energy) * fL
+        if fR is not None:
+            s_in[-1] = self.selfenergies[1].get_lambda(energy) * fR
 
         Gn_qii, Gn_qij, Gn_qji = recursive_gf(*self._get_mat_lists(energy),
                                                s_in=s_in, dos=True)
@@ -311,15 +323,27 @@ class RecursiveGF(CoupledHamiltonian):
         return self._return(GS_qii, trace=trace, diag=diag)
 
 
-    def dos(self, energy):
-        GS = self.apply_overlap(energy, trace=True)
-        return - GS.imag / np.pi
+    def dos(self, energies, dos_e=None):
+        if dos_e is None:
+            dos_e = np.zeros_like(energies)
+        for e, energy in enumerate(energies):
+            GS = self.apply_overlap(energy, trace=True)
+            dos_e[e] = - GS.imag / np.pi
+        return dos_e
 
 
     def pdos(self, energy):
         GS_i = self.apply_overlap(energy, diag=True).imag
         return - GS_i / np.pi
 
+    def get_spectrals(self, energy):
+        """Specral density of states incoming from leads."""
+        A1_qii, A1_qij, A1_qji = self.lesser(energy, fL=1, fR=0)
+        A2_qii, A2_qij, A2_qji = self.lesser(energy, fL=0, fR=1)
+        A1_qmm = A1_qii, A1_qij, A1_qji
+        A2_qmm = A2_qii, A2_qij, A2_qji
+
+        return A1_qmm, A2_qmm
 
     def add_screening(self, V):
         if not hasattr(self, 'V'):
@@ -340,6 +364,12 @@ class RecursiveGF(CoupledHamiltonian):
 
     ## Helper functions
 
+    # @property
+    # def H(self):
+    #     H_qii = self.hs_list_ii[0]
+    #     H_qij = self.hs_list_ij[0]
+    #     H_qji = self.hs_list_ji[0]
+    #     return H_qii, H_qij, H_qji
 
     def _get_mat_lists(self, energy):
         z = energy + self.eta * 1.j
