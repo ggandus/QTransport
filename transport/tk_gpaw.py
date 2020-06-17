@@ -1,10 +1,12 @@
 import numpy as np
-
+from scipy import linalg as la
+from ase.calculators.singlepoint import SinglePointCalculator
+from gpaw.setup import types2atomtypes
+from gpaw.basis_data import Basis
 from .tools import subdiagonalize, get_orthonormal_subspace, \
                    get_subspace, rotate_matrix, dagger
 from .block import block
 from .tk_calc import get_info
-from scipy import linalg as la
 
 def initialize_calculator(calc):
     calc.atoms.set_calculator(calc)
@@ -49,12 +51,29 @@ def get_bfs_indices(calc, a, method='extend'):
     Mattr = getattr(Mvalues, method)
     for a0 in a:
         M = 0
-        # if a0 >= len(M_a): # original number of atoms,
-        #                                # e.g. allows calc.atoms = atoms.repeat(..)
-        #     a0 %= len(M_a)
-        #     M += calc.setups.nao
         M += M_a[a0]
         Mattr(list(range(M, M + nao_a[a0])))
+    return Mvalues
+
+def get_bfs_atoms(atoms, basis, default='dzp', method='extend'):
+    """Get ba
+    atoms - ase::atoms
+    basis - dict
+    default - str
+    """
+    symbols = atoms.get_chemical_symbols()
+    basis_a = types2atomtypes(symbols, basis, default)
+
+    nao_a = [Basis(symbol, type).nao
+             for symbol, type in zip(symbols, basis_a)]
+
+    Mvalues = []
+    Mattr = getattr(Mvalues, method)
+    i0 = 0
+    for nao in nao_a:
+        i1 = i0 + nao
+        Mattr(list(range(i0,i1)))
+        i0 = i1
     return Mvalues
 
 def subdiagonalize_atoms(calc, h_ii, s_ii, a=None):
