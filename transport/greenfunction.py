@@ -173,7 +173,9 @@ class RecursiveGF(CoupledHamiltonian):
                            'pl1': None,
                            'pl2': None,
                            'cutoff': cutoff,
-                           'align_bf': None}
+                           'align_bf': None,
+                           'H': None,
+                           'S': None}
 
         self.initialized = False
         self.set(**kwargs)
@@ -181,7 +183,7 @@ class RecursiveGF(CoupledHamiltonian):
     def set(self, **kwargs):
         for key in kwargs:
             if key in ['eta','calc', 'pl1', 'pl2',
-                       'cutoff', 'align_bf']:
+                       'cutoff', 'align_bf','H','S']:
                 self.initialized = False
                 break
             elif key not in self.parameters:
@@ -205,6 +207,8 @@ class RecursiveGF(CoupledHamiltonian):
         pl1 = p['pl1']
         pl2 = p['pl2']
         cutoff = p['cutoff']
+        H = p['H']
+        S = p['S']
 
         if pl1 is None:
             pl1 = self.selfenergies[0].natoms
@@ -217,7 +221,7 @@ class RecursiveGF(CoupledHamiltonian):
         if hs_list_ii is None:
             #Construct block tridiagonal lists
             self.hs_list_ii, self.hs_list_ij = tridiagonalize(
-                                               calc, self.H, self.S,
+                                               calc, H, S,
                                                pl1, pl2, cutoff)
         else:
             self.hs_list_ii, self.hs_list_ij = hs_list_ii, hs_list_ij
@@ -364,12 +368,25 @@ class RecursiveGF(CoupledHamiltonian):
 
     ## Helper functions
 
-    # @property
-    # def H(self):
-    #     H_qii = self.hs_list_ii[0]
-    #     H_qij = self.hs_list_ij[0]
-    #     H_qji = self.hs_list_ji[0]
-    #     return H_qii, H_qij, H_qji
+    @property
+    def H(self):
+        H_qii = self.hs_list_ii[0]
+        H_qij = self.hs_list_ij[0]
+        H_qji = self.hs_list_ji[0]
+        return H_qii, H_qij, H_qji
+    @H.setter
+    def H(self,H):
+        pass
+
+    @property
+    def S(self):
+        S_qii = self.hs_list_ii[1]
+        S_qij = self.hs_list_ij[1]
+        S_qji = self.hs_list_ji[1]
+        return S_qii, S_qij, S_qji
+    @S.setter
+    def S(self,S):
+        pass
 
     def _get_mat_lists(self, energy):
         z = energy + self.eta * 1.j
