@@ -336,9 +336,13 @@ class RecursiveGF(CoupledHamiltonian):
         return dos_e
 
 
-    def pdos(self, energy):
-        GS_i = self.apply_overlap(energy, diag=True).imag
-        return - GS_i / np.pi
+    def pdos(self, energies, bfs, pdos_e=None):
+        if pdos_e is None:
+            pdos_e = np.zeros_like(energies)
+        for e, energy in enumerate(energies):
+            GS_i = self.apply_overlap(energy, diag=True)
+            pdos_e[e] = - GS_i.imag.take(bfs).sum() / np.pi
+        return pdos_e
 
     def get_spectrals(self, energy):
         """Specral density of states incoming from leads."""
