@@ -5,12 +5,15 @@ from .recursive import multiply, get_diagonal
 from transport.greenfunction import RecursiveGF, GreenFunction
 from transport.tools import dagger
 # NeighborList
-from ase.data import covalent_radii
-from ase.neighborlist import NeighborList
-import ase.neighborlist
+from transport.tk_atoms import get_neighbors
 
 def _orbital_current_gf(A_mm, H_mm, index_i, index_j,
                         A_dag_mm, H_dag_mm):
+    ''' Reference bond current formula:
+    Crossed graphene nanoribbons as beam splitters and mirrors
+    for electron quantum optics.
+    Sofia Sanz, et al.
+    '''
     ni = len(index_i)
     nj = len(index_j)
     J_ij = np.zeros((ni,nj))
@@ -80,8 +83,12 @@ def bond_current(A, H, bfs_ai, nlists):
                                           index_j).sum()
     return J_aa
 
-def quiver_plot(atoms, J_aa, nlists):
-
+def quiver_plot(atoms, J_aa, nlists, **kwargs):
+    ''' Get arrows info
+    X - origins
+    U - vectors with legth of corresponding bond
+    W - weigths
+    '''
     X = []
     U = []
     W = []
@@ -98,6 +105,102 @@ def quiver_plot(atoms, J_aa, nlists):
     U = np.asarray(U)
     W = np.asarray(W)
     Wneg = W<0
+    # Shift arrow to moddle of plot
     X[Wneg] += U[Wneg]/2
+    # Reverse arrow
     U[Wneg] *= -1
-    return X, U, np.abs(W)
+    W = np.abs(W)
+    return X, U, W
+
+def normalize_weigths(W, normalize=False, vmin=None, vmax=None, clip=False):
+    if normalize:
+        W = (W-W.min())/(W.max()-W.min())
+    if clip:
+        W = np.clip(W, vmin, vmax)
+    return W
+
+
+class DensityCurrent(object):
+
+    def __init__(self, GF, atoms, bfs_ai):
+        self.GF = GF
+        self.atoms = atoms
+        self.bfs_ai = bfs_ai
+        self.energy = None
+        self._set_nlists()
+        self.indices = None
+
+    def __call__(self, energy):
+        # Spectral functions
+        if energy != self.energy:
+            GF = self.GF
+            self.A1, self.A2 = GF.get_spectrals(energy)
+        bfs_ai = self._get_lists('bfs_ai')
+        nlists = self._get_lists('nlists')
+        J1_aa = bond_current(self.A1, GF.H, bfs_ai, nlists)
+        J2_aa = bond_current(self.A2, GF.H, bfs_ai, nlists)
+
+        return J1_aa, J2_aa, nlists
+
+    def _get_lists(self, name):
+        attr = getattr(self, name)
+        if self.indices is None:
+            return attr
+        else:
+            return [l for a,l in enumerate(attr) if a in self.indices]
+
+    def _set_nlists(self):
+        atoms = self.atoms
+        pbc = atoms.pbc.copy()
+        # Hack to avoid arrow between boundaries
+        atoms.set_pbc(False)
+        self.nlists = get_neighbors(atoms)
+        atoms.set_pbc(pbc)
+
+    def add_neighbors(self, index, neighbors):
+        if isinstance(neighbors, int):
+            neighbors = [neighbors]
+        elif isinstance(neighbors, np.ndarry):
+            neighbors = neighbors.tolist()
+        self.nlists[index].extend(neighbors)
+        for neighbor in neighbors:
+            self.nlists[neighbor].append(index)
+
+    def pop_neighbors(self, index, neighbors):
+        if isinstance(neighbors, int):
+            neighbors = [neighbors]
+        elif isinstance(neighbors, np.ndarry):
+            neighbors = neighbors.tolist()
+        for neighbor in neighbors:
+            ii = self.nlists[index].index(neighbor)
+            jj = self.nlists[neighbor].index(index)
+            self.nlists[index].pop(ii)
+            self.nlists[neighbor].pop(jj)
+
+    def display(self, J_aa, nlists, projection='2d',
+                normalize=True, vmin=None, vmax=None, clip=False):
+
+        from mpl_toolkits.mplot3d import Axes3D
+        from matplotlib import pyplot as plt
+        import matplotlib.cm as cm
+        # from matplotlib.colors import Normalize
+        atoms = self.atoms
+
+        X, U, W = quiver_plot(atoms, J_aa, nlists)
+        W = normalize_weigths(W, normalize, vmin, vmax, clip)
+        colormap = cm.YlOrBr
+
+        scale = 2
+        fig = plt.figure(figsize=(atoms.cell[0,0]/scale,
+                                  atoms.cell[1,1]/scale))
+        if projection is '3d':
+            ax = fig.gca(projection=projection)
+            ax.quiver(X[:,0],X[:,1],X[:,2],
+                      U[:,0],U[:,1],U[:,2],
+                      color=colormap(W))
+        else:
+            ax = fig.gca()
+            ax.quiver(X[:,0],X[:,1],
+                      U[:,0],U[:,1],
+                      color=colormap(W))
+        return ax

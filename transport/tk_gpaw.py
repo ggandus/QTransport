@@ -55,12 +55,14 @@ def get_bfs_indices(calc, a, method='extend'):
         Mattr(list(range(M, M + nao_a[a0])))
     return Mvalues
 
-def get_bfs_atoms(atoms, basis, default='dzp', method='extend'):
+def get_bfs_atoms(atoms, basis=None, default='dzp', method='extend'):
     """Get ba
     atoms - ase::atoms
-    basis - dict
+    basis - dict of elements with correspondig basis set type
     default - str
     """
+    if basis is None:
+        basis = {symbol:default for symbol in set(atoms.symbols)}
     symbols = atoms.get_chemical_symbols()
     basis_a = types2atomtypes(symbols, basis, default)
 
