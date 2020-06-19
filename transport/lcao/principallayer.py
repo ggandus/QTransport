@@ -225,10 +225,13 @@ class PrincipalLayer:
 
         A_kMM *= mask_ji[None, :]
 
-    def bloch_to_real_space_block(self, A_kMM):
+    def bloch_to_real_space_block(self, A_kMM, A_NMM=None):
 
-        # Fourier transform in transverse directions
-        A_NMM = self.bloch_to_real_space_t(A_kMM)
+        if A_NMM is None:
+            A_NMM = self.bloch_to_real_space_t(A_kMM)
+        else:
+            # Fourier transform in transverse directions
+            self.bloch_to_real_space_t(A_kMM, self.R_cN.T, A_NMM)
 
         # The new dimension (x) equals M \times the number of rows
         # A_xx = get_toeplitz(rows=A_NMM)
@@ -293,10 +296,10 @@ class PrincipalLayer:
     def _order_return(self, func):
 
         # Hack to order matrix according to (x) bfs.
-        def _order(func):
-            def _inner(A_NMM):
+        def _order(func, *args,  **kwargs):
+            def _inner(*args, **kwargs):
                 # Get matrix
-                M = _f(A_NMM)
+                M = _f(*args, **kwargs)
                 # Order
                 return get_subspace(M, self.bfa2bfx_i)
             _f = func
@@ -343,25 +346,20 @@ class PrincipalSelfEnergy(PrincipalLayer):
 
     def initialize(self, H_kMM=None, S_kMM=None):#, nprocesses=mp.cpu_count()):
 
-        # if self.initialized:
-        #     return
         ibzk_t_kc = self.ibzk_t_kc
-        shape = (len(ibzk_t_kc),) + H_kMM.shape[1:]
-        sz = int(np.prod(shape))
-        H_kii = mp.RawArray(ctypes.c_longdouble, sz)
-        S_kii = mp.RawArray(ctypes.c_longdouble, sz)
-        H_kij = mp.RawArray(ctypes.c_longdouble, sz)
-        S_kij = mp.RawArray(ctypes.c_longdouble, sz)
-        G_kMM = mp.RawArray(ctypes.c_longdouble, sz)
+        shape_kMM = (len(ibzk_t_kc),) + H_kMM.shape[1:]
+        sz_kMM = int(np.prod(shape_kMM))
+        H_kii = mp.RawArray(ctypes.c_longdouble, sz_kMM)
+        S_kii = mp.RawArray(ctypes.c_longdouble, sz_kMM)
+        H_kij = mp.RawArray(ctypes.c_longdouble, sz_kMM)
+        S_kij = mp.RawArray(ctypes.c_longdouble, sz_kMM)
+        G_kMM = mp.RawArray(ctypes.c_longdouble, sz_kMM)
 
-        self.H_kii = tonumpyarray(H_kii, shape, complex)
-        self.S_kii = tonumpyarray(S_kii, shape, complex)
-        self.H_kij = tonumpyarray(H_kij, shape, complex)
-        self.S_kij = tonumpyarray(S_kij, shape, complex)
-        self.G_kMM = tonumpyarray(G_kMM, shape, complex)
-        # pool = Pool(nprocesses, init=initialize,
-
-                    # initargs=(H_kMM, S_kMM, ibzk_t_kc))
+        self.H_kii = tonumpyarray(H_kii, shape_kMM, complex)
+        self.S_kii = tonumpyarray(S_kii, shape_kMM, complex)
+        self.H_kij = tonumpyarray(H_kij, shape_kMM, complex)
+        self.S_kij = tonumpyarray(S_kij, shape_kMM, complex)
+        self.G_kMM = tonumpyarray(G_kMM, shape_kMM, complex)
 
         super().initialize(H_kMM, S_kMM, self.ibzk_t_kc,
         self.H_kii, self.S_kii, self.H_kij, self.S_kij)
@@ -376,6 +374,13 @@ class PrincipalSelfEnergy(PrincipalLayer):
         if Nr_c is not None:
             assert len(Nr_c) == 2, 'Invalid length of Nr_c. It must be 2.'
             self.set_num_cells(Nr_c)
+
+        # Real space Green's function
+        shape_rMM = (int(np.prod(self.Nr_c)),) + H_kMM.shape[1:]
+        sz_rMM = int(np.prod(shape_rMM))
+        G_NMM = mp.RawArray(ctypes.c_longdouble, sz_rMM)
+
+        self.G_NMM = tonumpyarray(G_NMM, shape_rMM, complex)
 
         self.remove_pbc(self.H_kij)
         self.remove_pbc(self.S_kij)
@@ -454,15 +459,17 @@ class PrincipalSelfEnergy(PrincipalLayer):
     def get_G(self, energy):
 
         # Green's functions at thanverse k-points
-        G_kMM = []
+        G_kMM = self.G_kMM
 
         # Compute self-energies at transverse k-points
-        for selfenergy in self.selfenergies:
-            G_kMM.append(la.inv(selfenergy.get_Ginv(energy)))
-        G_kMM = np.array(G_kMM)
+        for i, selfenergy in enumerate(self.selfenergies):
+            G_kMM[i] = la.inv(selfenergy.get_Ginv(energy),
+                              overwrite_a=True, check_finite=False)
+            # G_kMM.append(la.inv(selfenergy.get_Ginv(energy)))
+        # G_kMM = np.array(G_kMM)
 
         # Compute quantities in realspace
-        G = self.bloch_to_real_space_block(G_kMM)
+        G = self.bloch_to_real_space_block(G_kMM, A_NMM=self.G_NMM)
         return G
 
     def apply_overlap(self, energy, trace=False, diag=False):
