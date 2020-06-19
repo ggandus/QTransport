@@ -1,6 +1,9 @@
-from numpy import np
+import numpy as np
 import multiprocessing as mp
 
+def tonumpyarray(mp_arr, shape, dtype):
+    """Convert shared multiprocessing array to numpy array.
 
-def init_hs_k(H_kii, S_kii, H_kij, S_kij, G_kii):
-    global 
+    no data copying
+    """
+    return np.frombuffer(mp_arr, dtype=dtype).reshape(shape)

@@ -1,6 +1,9 @@
 import numpy as np
 from scipy import linalg as la
+# Multiprocessing
 import multiprocessing as mp
+import ctypes
+from .thread_pool import *
 # from gpaw.symmetry import Symmetry
 from ase.dft.kpoints import monkhorst_pack
 from ase import units
@@ -342,10 +345,27 @@ class PrincipalSelfEnergy(PrincipalLayer):
 
         # if self.initialized:
         #     return
-        # ibzk_t_kc = self.ibzk_t_kc
+        ibzk_t_kc = self.ibzk_t_kc
+        shape = (len(ibzk_t_kc),) + H_kMM.shape[1:]
+        sz = int(np.prod(shape))
+        H_kii = mp.RawArray(ctypes.c_longdouble, sz)
+        S_kii = mp.RawArray(ctypes.c_longdouble, sz)
+        H_kij = mp.RawArray(ctypes.c_longdouble, sz)
+        S_kij = mp.RawArray(ctypes.c_longdouble, sz)
+        G_kMM = mp.RawArray(ctypes.c_longdouble, sz)
+
+        self.H_kii = tonumpyarray(H_kii, shape, complex)
+        self.S_kii = tonumpyarray(S_kii, shape, complex)
+        self.H_kij = tonumpyarray(H_kij, shape, complex)
+        self.S_kij = tonumpyarray(S_kij, shape, complex)
+        self.G_kMM = tonumpyarray(G_kMM, shape, complex)
         # pool = Pool(nprocesses, init=initialize,
+
                     # initargs=(H_kMM, S_kMM, ibzk_t_kc))
-        super().initialize(H_kMM, S_kMM)
+
+        super().initialize(H_kMM, S_kMM, self.ibzk_t_kc,
+        self.H_kii, self.S_kii, self.H_kij, self.S_kij)
+
 
         p = self.parameters
 
