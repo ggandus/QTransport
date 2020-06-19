@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import linalg as la
-from collections import namedtuple
+import multiprocessing as mp
 # from gpaw.symmetry import Symmetry
 from ase.dft.kpoints import monkhorst_pack
 from ase import units
@@ -36,7 +36,8 @@ class PrincipalLayer:
 
         self.update()
 
-    def initialize(self, H_kMM=None, S_kMM=None):
+    def initialize(self, H_kMM=None, S_kMM=None, ibzk_t_kc=None,
+                   H_kii=None, S_kii=None, H_kij=None, S_kij=None):
 
         if H_kMM is None:
             H_kMM, S_kMM = h_and_s(self.calc)
@@ -46,16 +47,16 @@ class PrincipalLayer:
             self.align_fermi(H_kMM, S_kMM)
 
         # Transport direction
-        self.update()
+        # self.update()
         p_dir, t_dirs = self.get_directions()
 
         R_c = [0,0,0]
-        self.H_kii = self.bloch_to_real_space_p(H_kMM, R_c)
-        self.S_kii = self.bloch_to_real_space_p(S_kMM, R_c)
+        self.H_kii = self.bloch_to_real_space_p(H_kMM, R_c, ibzk_t_kc, H_kii)
+        self.S_kii = self.bloch_to_real_space_p(S_kMM, R_c, ibzk_t_kc, S_kii)
 
         R_c[p_dir] = 1
-        self.H_kij = self.bloch_to_real_space_p(H_kMM, R_c)
-        self.S_kij = self.bloch_to_real_space_p(S_kMM, R_c)
+        self.H_kij = self.bloch_to_real_space_p(H_kMM, R_c, ibzk_t_kc, H_kij)
+        self.S_kij = self.bloch_to_real_space_p(S_kMM, R_c, ibzk_t_kc, S_kij)
 
     @property
     def H_kji(self):
@@ -120,19 +121,18 @@ class PrincipalLayer:
         # Update number of cells
         self.set_num_cells()
 
-    def bloch_to_real_space_p(self, A_kMM, R_c):
+    def bloch_to_real_space_p(self, A_kMM, R_c, ibzk_t_kc, A_NMM):
 
-        # Output matrix evaluated at (each>?1) transverse k-point.
-        A_NMM = []
-
-        # Parameters
-        shape = A_kMM.shape
+        # A_NMM Output matrix evaluated at (each>?1) transverse k-point.
+        if ibzk_t_kc is None:
+            ibzk_t_kc = self.ibzk_t_kc
+            A_NMM = np.zeros((len(ibzk_t_kc), *A_kMM.shape[1:]), dtype=A_kMM.dtype)
 
         # Transport and transverse k-points
         p_dir, t_dirs = self.get_directions()
 
         # For each transverse k-point, Fourier transform in trasport direction
-        for j, kt_c in enumerate(self.ibzk_t_kc):
+        for j, kt_c in enumerate(ibzk_t_kc):
             # Transport k-point that is fourier transformed in transport direction.
             k_kc  = np.zeros((len(self.bzk_p_k), 3))
             k_kc[:, p_dir]  = self.bzk_p_k
@@ -156,23 +156,20 @@ class PrincipalLayer:
                         A_xMM.append(A_kMM[kc2ibzk].conj())
                     except IndexError:
                         raise IndexError('k-point {} not found'.format(k_c))
-            A_MM  = fourier_sum(np.array(A_xMM), k_kc, R_c)
+            fourier_sum(np.array(A_xMM), k_kc, R_c, A_NMM[j])
 
-            A_MM /= self.Nk_c[p_dir]
+            A_NMM[j] /= self.Nk_c[p_dir]
 
-            A_NMM.append(A_MM)
+        return A_NMM
 
-        return np.array(A_NMM)
-
-    def bloch_to_real_space_t(self, A_kMM, R_Nc=None):
-
-        # Output matrix evaluated at (each>?1) transverse k-point.
-        A_NMM = []
+    def bloch_to_real_space_t(self, A_kMM, R_Nc=None, A_NMM=None):
 
         # Parameters
         shape = A_kMM.shape
         if R_Nc is None:
             R_Nc = self.R_cN.T
+            # Output matrix evaluated at (each>?1) transverse k-point.
+            A_NMM = np.zeros((len(R_Nc), *shape[1:]), dtype=A_kMM.dtype)
 
         # Transport and transverse k-points
         p_dir, t_dirs = self.get_directions()
@@ -187,7 +184,7 @@ class PrincipalLayer:
         # For each real space point, Fourier transform in trasverse direction
         for i, R_c in enumerate(R_Nc):
             # Evaualte fourier sum in tranverse direction
-            A_MM = fourier_sum(A_kMM, self.ibzk_t_kc, R_c)
+            fourier_sum(A_kMM, self.ibzk_t_kc, R_c, A_NMM[i])
 
             if len(self.ibzk_t_kc) < len(self.bzk_t_kc):
                 # Add conjugate and subtract double counted Gamma (in transport component)
@@ -197,11 +194,9 @@ class PrincipalLayer:
                 else:
                     A_MM += A_MM.conj()
 
-            A_MM /= np.prod(self.Nk_c[t_dirs])
+            A_NMM[i] /= np.prod(self.Nk_c[t_dirs])
 
-            A_NMM.append(A_MM)
-
-        return np.array(A_NMM)
+        return A_NMM
 
     def remove_pbc(self, A_kMM, eps=-1e-3):
 
@@ -343,11 +338,13 @@ class PrincipalSelfEnergy(PrincipalLayer):
         for selfenergy in self.selfenergies:
             selfenergy.set_bias(bias)
 
-    def initialize(self, H_kMM=None, S_kMM=None):
+    def initialize(self, H_kMM=None, S_kMM=None):#, nprocesses=mp.cpu_count()):
 
         # if self.initialized:
         #     return
-
+        # ibzk_t_kc = self.ibzk_t_kc
+        # pool = Pool(nprocesses, init=initialize,
+                    # initargs=(H_kMM, S_kMM, ibzk_t_kc))
         super().initialize(H_kMM, S_kMM)
 
         p = self.parameters

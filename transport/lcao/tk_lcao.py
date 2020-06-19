@@ -20,13 +20,17 @@ def symm_reduce(bzk_kc):
             bzk2ibzk_k.append(bzk_index)
     return np.array(ibzk_kc), np.array(bzk2ibzk_k)
 
-def fourier_sum(A_kMM, k_kc, R_c):
+def fourier_sum(A_kMM, k_kc, R_c, A_x):
     '''This function evaluates fourier sum'''
     shape = A_kMM.shape
+    if A_x is None:
+        A_x = np.zeros(shape[1:], dtype=A_kMM.dtype)
+    A_x.shape = np.prod(shape[1:])
     A_kx = A_kMM.reshape(shape[0], -1)
     phase_k  = np.exp(2.j * np.pi * np.dot(k_kc, R_c))
-    A_x = np.sum(phase_k[:, None] * A_kx, axis=0)
-    A_MM = A_x.reshape(shape[1:])
+    np.sum(phase_k[:, None] * A_kx, axis=0, out=A_x)
+    A_x.shape = shape[1:] #A_MM
+    A_MM = A_x
     return A_MM
 
 
