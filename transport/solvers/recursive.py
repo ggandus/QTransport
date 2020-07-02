@@ -24,14 +24,14 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
     # Left connected green's function
     grL_qii = [None for _ in range(N)]
     # Initalize
-    grL_qii[0] = la.inv(m_qii[0]) # ([eS-H]_11-Sigma_L)^-1
+    grL_qii[0] = la.inv(m_qii[0], check_finite=False) # ([eS-H]_11-Sigma_L)^-1
     # First row green's function
     gr_1i = grL_qii[0].copy()
 
     # Left connected recursion
     for q in range(1, N):
         # Left
-        grL_qii[q] = la.inv(m_qii[q] - m_qji[q - 1] @ grL_qii[q - 1] @ m_qij[q - 1])
+        grL_qii[q] = la.inv(m_qii[q] - m_qji[q - 1] @ grL_qii[q - 1] @ m_qij[q - 1], check_finite=False)
         # 1st row
         gr_1i = gr_1i @ m_qij[q - 1] @ grL_qii[q]
 
