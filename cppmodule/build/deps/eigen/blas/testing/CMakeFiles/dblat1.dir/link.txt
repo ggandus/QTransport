@@ -1,1 +1,0 @@
-/usr/bin/gfortran  -lm -lpthread -lgomp -O3 -DNDEBUG -O3 CMakeFiles/dblat1.dir/dblat1.f.o  -o dblat1 -Wl,-rpath,/home/ggandus/tbnegf/tbnegf/transport/cppbind/build/deps/eigen/blas ../libeigen_blas.so 

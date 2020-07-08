@@ -1,5 +1,6 @@
 import numpy as np
 from numpy import linalg
+from scipy.sparse import csr_matrix
 # from functools import lru_cache
 from .coupledhamiltonian import CoupledHamiltonian
 from .tools import dagger
@@ -220,11 +221,14 @@ class RecursiveGF(CoupledHamiltonian):
 
         if hs_list_ii is None:
             #Construct block tridiagonal lists
-            self.hs_list_ii, self.hs_list_ij = tridiagonalize(
+            hs_list_ii, hs_list_ij = tridiagonalize(
                                                calc, H, S,
                                                pl1, pl2, cutoff)
-        else:
-            self.hs_list_ii, self.hs_list_ij = hs_list_ii, hs_list_ij
+        # else:
+        self.hs_list_ii, self.hs_list_ij = list(hs_list_ii), list(hs_list_ij)
+
+        # self.truncate(hs_list_ii)
+        # self.truncate(hs_list_ij)
 
         #Align first basis funciton for Left lead
         if align_bf is not None:
@@ -232,6 +236,10 @@ class RecursiveGF(CoupledHamiltonian):
 
         self.hs_list_ji = [[h.T for h in self.hs_list_ij[0]],
                            [s.T for s in self.hs_list_ij[1]]]
+
+        # self.dense2csr(self.hs_list_ii)
+        # self.dense2csr(self.hs_list_ij)
+        # self.dense2csr(self.hs_list_ji)
 
         #Note h_im[:,:pl1]=h_ij for Left and h_im[:,-pl2:]=h_ij for Right
         for selfenergy in self.selfenergies:
@@ -243,6 +251,17 @@ class RecursiveGF(CoupledHamiltonian):
         self.nbf = sum(h.shape[0] for h in self.hs_list_ii[0])
         self.N = len(self.hs_list_ii[0])
         self.initialized = True
+
+    @staticmethod
+    def truncate(hs_list, cutoff=cutoff):
+        conds = [abs(h) < cutoff for h in hs_list[0]]
+        for h, cond in zip(hs_list[0], conds): h[cond]=0
+        for s, cond in zip(hs_list[1], conds): s[cond]=0
+
+    @staticmethod
+    def dense2csr(hs_list):
+        hs_list[0] = [csr_matrix(mat) for mat in hs_list[0]]
+        hs_list[1] = [csr_matrix(mat) for mat in hs_list[1]]
 
     def align_bf(self, bf):
         h1 = self.selfenergies[0].h_ii

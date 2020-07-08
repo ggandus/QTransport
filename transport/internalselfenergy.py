@@ -13,8 +13,10 @@ class InternalSelfEnergy(CoupledHamiltonian):
         self.eta = eta
         self.energy = None
         self.bias = 0
-        self.sigma_mm = np.empty((self.nbf_m, self.nbf_m), complex)
-        self.Ginv = np.empty((self.nbf_i, self.nbf_i), complex)
+        #
+        dtype = self.h_ii.dtype
+        self.sigma_mm = np.empty((self.nbf_m, self.nbf_m), dtype=dtype)
+        self.Ginv = np.empty((self.nbf_i, self.nbf_i), dtype=dtype)
         self.selfenergies = selfenergies
 
         CoupledHamiltonian.__init__(self, self.h_ii, self.s_ii, self.selfenergies)

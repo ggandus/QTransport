@@ -1,2 +1,0 @@
-/home/ggandus/tbnegf/tbnegf/transport/cppbind/build/language_tests/Fortran/CMakeFiles/rebuild_cache.dir
-/home/ggandus/tbnegf/tbnegf/transport/cppbind/build/language_tests/Fortran/CMakeFiles/edit_cache.dir

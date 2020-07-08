@@ -1,1 +1,0 @@
-/usr/bin/gfortran  -lm -lpthread -lgomp -O3 -DNDEBUG -O3 CMakeFiles/zblat2.dir/zblat2.f.o  -o zblat2 -Wl,-rpath,/home/ggandus/tbnegf/tbnegf/transport/cppbind/build/deps/eigen/blas ../libeigen_blas.so 

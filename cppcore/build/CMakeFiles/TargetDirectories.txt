@@ -1,3 +1,0 @@
-/home/ggandus/tbnegf/tbnegf/transport/cppcore/build/CMakeFiles/rebuild_cache.dir
-/home/ggandus/tbnegf/tbnegf/transport/cppcore/build/CMakeFiles/main.dir
-/home/ggandus/tbnegf/tbnegf/transport/cppcore/build/CMakeFiles/edit_cache.dir

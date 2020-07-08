@@ -1,1 +1,0 @@
-/usr/bin/c++    -lm -lpthread -lgomp -rdynamic CMakeFiles/main.dir/src/greenfunction.cpp.o CMakeFiles/main.dir/src/leadselfenergy.cpp.o CMakeFiles/main.dir/src/main.cpp.o CMakeFiles/main.dir/src/selfenergy.cpp.o  -o main 
