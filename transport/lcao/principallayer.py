@@ -1,9 +1,6 @@
 import numpy as np
 from scipy import linalg as la
-# Multiprocessing
-import multiprocessing as mp
-import ctypes
-from .thread_pool import *
+from scipy.spatial.distance import cdist
 # from gpaw.symmetry import Symmetry
 from ase.dft.kpoints import monkhorst_pack
 from ase import units
@@ -39,8 +36,9 @@ class PrincipalLayer:
 
         self.update()
 
-    def initialize(self, H_kMM=None, S_kMM=None, ibzk_t_kc=None,
-                   H_kii=None, S_kii=None, H_kij=None, S_kij=None):
+    def initialize(self, H_kMM=None, S_kMM=None,
+                   H_kii=None, S_kii=None, H_kij=None, S_kij=None,
+                   ibzk_t_kc=None):
 
         if H_kMM is None:
             H_kMM, S_kMM = h_and_s(self.calc)
@@ -131,11 +129,12 @@ class PrincipalLayer:
             ibzk_t_kc = self.ibzk_t_kc
             A_NMM = np.zeros((len(ibzk_t_kc), *A_kMM.shape[1:]), dtype=A_kMM.dtype)
 
+        ibz2bz = cdist(ibzk_t_kc, self.ibzk_t_kc).argmin(1)
         # Transport and transverse k-points
         p_dir, t_dirs = self.get_directions()
 
         # For each transverse k-point, Fourier transform in trasport direction
-        for j, kt_c in enumerate(ibzk_t_kc):
+        for j, kt_c in zip(ibz2bz, ibzk_t_kc):
             # Transport k-point that is fourier transformed in transport direction.
             k_kc  = np.zeros((len(self.bzk_p_k), 3))
             k_kc[:, p_dir]  = self.bzk_p_k
@@ -344,26 +343,21 @@ class PrincipalSelfEnergy(PrincipalLayer):
         for selfenergy in self.selfenergies:
             selfenergy.set_bias(bias)
 
-    def initialize(self, H_kMM=None, S_kMM=None):#, nprocesses=mp.cpu_count()):
+    def initialize(self, H_kMM=None, S_kMM=None):
 
         ibzk_t_kc = self.ibzk_t_kc
+        dtype = H_kMM.dtype
+
         shape_kMM = (len(ibzk_t_kc),) + H_kMM.shape[1:]
         sz_kMM = int(np.prod(shape_kMM))
-        H_kii = mp.RawArray(ctypes.c_longdouble, sz_kMM)
-        S_kii = mp.RawArray(ctypes.c_longdouble, sz_kMM)
-        H_kij = mp.RawArray(ctypes.c_longdouble, sz_kMM)
-        S_kij = mp.RawArray(ctypes.c_longdouble, sz_kMM)
-        G_kMM = mp.RawArray(ctypes.c_longdouble, sz_kMM)
 
-        self.H_kii = tonumpyarray(H_kii, shape_kMM, complex)
-        self.S_kii = tonumpyarray(S_kii, shape_kMM, complex)
-        self.H_kij = tonumpyarray(H_kij, shape_kMM, complex)
-        self.S_kij = tonumpyarray(S_kij, shape_kMM, complex)
-        self.G_kMM = tonumpyarray(G_kMM, shape_kMM, complex)
+        self.H_kii = np.empty(shape_kMM, dtype=dtype)
+        self.S_kii = np.empty(shape_kMM, dtype=dtype)
+        self.H_kij = np.empty(shape_kMM, dtype=dtype)
+        self.S_kij = np.empty(shape_kMM, dtype=dtype)
+        self.G_kMM = np.empty(shape_kMM, dtype=dtype)
 
-        super().initialize(H_kMM, S_kMM, self.ibzk_t_kc,
-        self.H_kii, self.S_kii, self.H_kij, self.S_kij)
-
+        super().initialize(H_kMM, S_kMM, self.H_kii, self.S_kii, self.H_kij, self.S_kij, ibzk_t_kc)
 
         p = self.parameters
 
@@ -378,9 +372,8 @@ class PrincipalSelfEnergy(PrincipalLayer):
         # Real space Green's function
         shape_rMM = (int(np.prod(self.Nr_c)),) + H_kMM.shape[1:]
         sz_rMM = int(np.prod(shape_rMM))
-        G_NMM = mp.RawArray(ctypes.c_longdouble, sz_rMM)
 
-        self.G_NMM = tonumpyarray(G_NMM, shape_rMM, complex)
+        self.G_NMM = np.empty(shape_rMM, dtype=dtype)
 
         self.remove_pbc(self.H_kij)
         self.remove_pbc(self.S_kij)
@@ -400,7 +393,6 @@ class PrincipalSelfEnergy(PrincipalLayer):
                                                                self.H_kij,
                                                                self.S_kij)]
 
-
         # Number of basis functions leads (i) and scattering (m) regions
         nbf_i = self.calc.setups.nao * len(self.R_cN.T)
         if self.scatt:
@@ -416,9 +408,8 @@ class PrincipalSelfEnergy(PrincipalLayer):
         self.s_ij = self.bloch_to_real_space_block(self.S_kij)
 
         # Coupling to central region
-        dtype = self.h_ij.dtype
-        self.h_im  = np.zeros((nbf_i,nbf_m),dtype=dtype)
-        self.s_im  = np.zeros((nbf_i,nbf_m),dtype=dtype)
+        self.h_im  = np.zeros((nbf_i,nbf_m), dtype=dtype)
+        self.s_im  = np.zeros((nbf_i,nbf_m), dtype=dtype)
 
         if self.id == 0:
             self.h_im[:nbf_i, :nbf_i] = self.h_ij
@@ -428,7 +419,7 @@ class PrincipalSelfEnergy(PrincipalLayer):
             self.h_im[-nbf_i:, -nbf_i:] = self.h_ij
             self.s_im[-nbf_i:, -nbf_i:] = self.s_ij
 
-        self.sigma_mm = np.zeros((nbf_m,nbf_m), dtype=complex)
+        self.sigma_mm = np.zeros((nbf_m,nbf_m), dtype=dtype)
 
         self.nbf_m = nbf_m
         self.nbf_i = nbf_i
@@ -458,15 +449,18 @@ class PrincipalSelfEnergy(PrincipalLayer):
 
     def get_G(self, energy):
 
+        from .cython.recursive_sgf import get_G
+
         # Green's functions at thanverse k-points
         G_kMM = self.G_kMM
+        # func = LeadSelfEnergy.get_Ginv
 
-        # Compute self-energies at transverse k-points
-        for i, selfenergy in enumerate(self.selfenergies):
-            G_kMM[i] = la.inv(selfenergy.get_Ginv(energy),
-                              overwrite_a=True, check_finite=False)
-            # G_kMM.append(la.inv(selfenergy.get_Ginv(energy)))
-        # G_kMM = np.array(G_kMM)
+        # # Compute self-energies at transverse k-points
+        # for i, selfenergy in enumerate(self.selfenergies):
+            # G_kMM[i] = la.inv(func(selfenergy, energy),
+            #                   overwrite_a=True, check_finite=False)
+
+        get_G(G_kMM,self.H_kii,self.S_kii,self.H_kij,self.S_kij,energy)
 
         # Compute quantities in realspace
         G = self.bloch_to_real_space_block(G_kMM, A_NMM=self.G_NMM)
