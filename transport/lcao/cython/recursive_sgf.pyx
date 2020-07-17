@@ -7,7 +7,7 @@ import numpy as np
 from scipy import linalg as la
 from cython.parallel import prange, parallel
 from scipy.linalg.cython_lapack cimport zgetrf, zgetrs, zgetri, zlange, zlacpy
-from scipy.linalg.cython_blas cimport zgemm
+from scipy.linalg.cython_blas cimport zgemm, zaxpy
 
 
 cdef double conv = 1e-8
@@ -52,7 +52,8 @@ cdef void get_Ginv(complex[::1,:] v_00, complex[::1,:] v_01,
                    complex[::1,:] lu, complex[::1,:] v_01_dot_b, int[:] ipiv) nogil:
     # """The inverse of the retarded surface Green function"""
 
-    cdef int m = v_00.shape[0], i, j, info
+    cdef int m = v_00.shape[0], i, j, info, inc = 1
+    cdef int m2 = m*m
     cdef char trans = b'N', norm = b'M', UPLO = b'A'
     cdef complex alpha = 1.+0.j, beta = -1.+0.j, gamma = 0.+0.j
 
@@ -97,12 +98,14 @@ cdef void get_Ginv(complex[::1,:] v_00, complex[::1,:] v_01,
         zgemm(&trans,&trans,&m,&m,&m,&alpha,&v_01[0,0],&m,&b[0,0],
               &m,&gamma,&v_01_dot_b[0,0],&m)
         # assert np.allclose(np.asarray(v_01_dot_b), py_v_01_dot_b), 'v_01_dot_b'
-        mat_add(beta, v_01_dot_b, v_00)
+        # mat_add(beta, v_01_dot_b, v_00)
+        zaxpy(&m2,&beta,&v_01_dot_b[0,0],&inc,&v_00[0,0],&inc)
         # assert np.allclose(np.asarray(v_00), py_v_00), 'v_00'
         zgemm(&trans,&trans,&m,&m,&m,&beta,&v_10[0,0],&m,&a[0,0],
               &m,&alpha,&v_11[0,0],&m)
         # assert not np.allclose(np.asarray(v_11), py_v_11), 'v_11'
-        mat_add(beta, v_01_dot_b, v_11)
+        # mat_add(beta, v_01_dot_b, v_11)
+        zaxpy(&m2,&beta,&v_01_dot_b[0,0],&inc,&v_11[0,0],&inc)
         # assert np.allclose(np.asarray(v_11), py_v_11), 'v_11'
         zlacpy(&UPLO,&m,&m,&v_01[0,0],&m,&lu[0,0],&m)
         zgemm(&trans,&trans,&m,&m,&m,&beta,&lu[0,0],&m,&a[0,0],
