@@ -242,11 +242,11 @@ class RecursiveGF(CoupledHamiltonian):
         # self.dense2csr(self.hs_list_ji)
 
         #Note h_im[:,:pl1]=h_ij for Left and h_im[:,-pl2:]=h_ij for Right
-        for selfenergy in self.selfenergies:
-            selfenergy.h_im = selfenergy.h_ij
-            selfenergy.s_im = selfenergy.s_ij
-            selfenergy.sigma_mm = np.empty((selfenergy.nbf_i, selfenergy.nbf_i),
-                                            dtype=selfenergy.sigma_mm.dtype)
+        #for selfenergy in self.selfenergies:
+        #    selfenergy.h_im = selfenergy.h_ij
+        #    selfenergy.s_im = selfenergy.s_ij
+        #    selfenergy.sigma_mm = np.empty((selfenergy.nbf_i, selfenergy.nbf_i),
+        #                                    dtype=selfenergy.sigma_mm.dtype)
 
         self.nbf = sum(h.shape[0] for h in self.hs_list_ii[0])
         self.N = len(self.hs_list_ii[0])

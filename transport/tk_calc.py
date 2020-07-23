@@ -1,7 +1,7 @@
 import numpy as np
 from collections import namedtuple
 
-fields = ['M_a','nao_a','nao']
+fields = ['M_a','nao_a','nao','atoms']
 Calc = namedtuple('calc', fields)
 
 def initialize_calculator(calc):
@@ -22,7 +22,7 @@ def make_calc(atoms, basis):
         nao_a[a0] = basis[atoms[a0].symbol]
         M_a[a0] = M_a[a0-1] + nao_a[a0-1]
         nao += nao_a[a0]
-    return Calc(M_a, nao_a, nao)
+    return Calc(M_a, nao_a, nao, atoms)
 
 
 def get_info(calc, attributes):
