@@ -5,12 +5,6 @@ from scipy import linalg as la
 from .tridiagonal import cutoff
 from transport.tools import dagger
 
-def left_div(a, b):
-    # Solve ax=b
-    res, resid, rank, s = la.lstsq(a, b ,cond=-1)
-
-    return res
-
 def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
 
     N = len(mat_list_ii)
