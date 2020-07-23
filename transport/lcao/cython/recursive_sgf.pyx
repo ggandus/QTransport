@@ -21,7 +21,7 @@ cdef inline void init_vecs(complex* h_ii, complex* s_ii,
                            complex[:,:] h_ij, complex[:,:] s_ij,
                            complex* v_00, complex* v_01,
                            complex* v_10, complex* v_11,
-                           double energy, int m,
+                           complex energy, int m,
                            double eta=1e-5, double bias=0.) nogil:
 
     cdef int i, j
@@ -119,7 +119,7 @@ cdef inline void inv(complex* a, complex[::1] work, int[:] ipiv, int m) nogil:
     zgetri(&m,&a[0],&m,&ipiv[0],&work[0],&lwork,&info)
 
 
-def get_G(G_kMM,H_kii,S_kii,H_kij,S_kij,energy,eta=1e-5,bias=0.):
+def get_G(G_kMM,H_kii,S_kii,H_kij,S_kij,energy, double eta=1e-5, double bias=0.):
 
     nkpts = H_kii.shape[0]
     m = G_kMM.shape[1]
@@ -150,13 +150,14 @@ def get_G(G_kMM,H_kii,S_kii,H_kij,S_kij,energy,eta=1e-5,bias=0.):
     # Green's function at transverse k-points
     cdef complex[:,:] h_ii
     cdef complex[:,:] s_ii
-    # cdef complex[:,:] h_ij
-    # cdef complex[:,:] s_ij
+    cdef complex[:,:] h_ij
+    cdef complex[:,:] s_ij
+    energy = complex(energy)
     for i in range(nkpts):
         h_ii = H_kii[i]
         s_ii = S_kii[i]
-        # h_ij = H_kij[i]
-        # s_ij = S_kij[i]
+        h_ij = H_kij[i]
+        s_ij = S_kij[i]
         init_vecs(&h_ii[0,0],&s_ii[0,0],H_kij[i],S_kij[i],
                   &_v_00[0,0],&_v_01[0,0],&_v_10[0,0],&_v_11[0,0],
                   energy,m)

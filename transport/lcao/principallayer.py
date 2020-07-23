@@ -398,9 +398,9 @@ class PrincipalSelfEnergy(PrincipalLayer):
         if self.scatt:
             self.natoms = len(self.calc.atoms) * len(self.R_cN.T)
             self.set_order(self.scatt[:self.natoms])
-            nbf_m = nbf_m or nbf_i #* self.scatt.setups.nao
-        else:
-            nbf_m = nbf_i
+
+        if nbf_m is None:
+            nbf_m = nbf_i #* self.scatt.setups.nao
 
         self.h_ii = self.bloch_to_real_space_block(self.H_kii)
         self.s_ii = self.bloch_to_real_space_block(self.S_kii)
@@ -453,14 +453,27 @@ class PrincipalSelfEnergy(PrincipalLayer):
 
         # Green's functions at thanverse k-points
         G_kMM = self.G_kMM
-        # func = LeadSelfEnergy.get_Ginv
+        func = LeadSelfEnergy.get_Ginv
 
-        # # Compute self-energies at transverse k-points
+        ### Compute self-energies at transverse k-points
+
+        # Dask version
+        # from dask import delayed, compute
+        # func1 = [delayed(func)(selfenergy, energy)
+        #             for selfenergy in self.selfenergies]
+        # func2 = [delayed(la.inv)(f1, overwrite_a=True, check_finite=True)
+        #             for f1 in func1]
+        # func3 = delayed(np.asarray)(func2)
+        # G_kMM = compute(func3, schedule='processes')[0]
+
         # for i, selfenergy in enumerate(self.selfenergies):
-            # G_kMM[i] = la.inv(func(selfenergy, energy),
-            #                   overwrite_a=True, check_finite=False)
+        #     G_kMM[i] = la.inv(func(selfenergy, energy),
+        #                       overwrite_a=True, check_finite=False)
 
+        # Cython version
         get_G(G_kMM,self.H_kii,self.S_kii,self.H_kij,self.S_kij,energy)
+
+        # embed()
 
         # Compute quantities in realspace
         G = self.bloch_to_real_space_block(G_kMM, A_NMM=self.G_NMM)
