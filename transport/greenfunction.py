@@ -13,6 +13,8 @@ from .solvers.recursive import * #get_mat_lists, recursive_gf, multiply
 from .continued_fraction import integrate_pdos
 from .tk_gpaw import sum_bf_atom
 
+# GPU
+import cupy as cp
 
 class GreenFunction(CoupledHamiltonian):
     """Equilibrium retarded Green function."""
@@ -176,7 +178,8 @@ class RecursiveGF(CoupledHamiltonian):
                            'cutoff': cutoff,
                            'align_bf': None,
                            'H': None,
-                           'S': None}
+                           'S': None,
+                           'gpu': False}
 
         self.initialized = False
         self.set(**kwargs)
@@ -184,7 +187,7 @@ class RecursiveGF(CoupledHamiltonian):
     def set(self, **kwargs):
         for key in kwargs:
             if key in ['eta','calc', 'pl1', 'pl2',
-                       'cutoff', 'align_bf','H','S']:
+                       'cutoff', 'align_bf','H','S','gpu']:
                 self.initialized = False
                 break
             elif key not in self.parameters:
@@ -224,6 +227,13 @@ class RecursiveGF(CoupledHamiltonian):
             hs_list_ii, hs_list_ij = tridiagonalize(
                                                calc, H, S,
                                                pl1, pl2, cutoff)
+        # Offload to GPU
+        if p['gpu'] is True:
+            hs_list_ii = [[cp.asarray(h) for h in hs_list_ii[0]], 
+                   [cp.asarray(s) for s in hs_list_ii[1]]]
+            hs_list_ij = [[cp.asarray(h) for h in hs_list_ij[0]], 
+                   [cp.asarray(s) for s in hs_list_ij[1]]]
+        
         # else:
         self.hs_list_ii, self.hs_list_ij = list(hs_list_ii), list(hs_list_ij)
 
@@ -288,16 +298,23 @@ class RecursiveGF(CoupledHamiltonian):
 
     def get_transmission(self, energies, T_e=None):
 
+        xp = cp.get_array_module(self.hs_list_ii[0][0])
+
         if T_e is None:
             T_e = np.zeros(len(energies))
 
         for e, energy in enumerate(energies):
 
             gr_1N = self.get_g1N(energy)
-            ga_1N = np.conj(gr_1N.T)
+            ga_1N = xp.conj(gr_1N.T)
             lambda1_11 = self.selfenergies[0].get_lambda(energy)
             lambda2_NN = self.selfenergies[1].get_lambda(energy)
-            T_e[e] = np.trace(lambda1_11.dot(gr_1N).dot(lambda2_NN).dot(ga_1N)).real
+            
+            if self.parameters['gpu'] is True:
+                lambda1_11 = cp.asarray(lambda1_11)
+                lambda2_NN = cp.asarray(lambda2_NN)
+            
+            T_e[e] = xp.trace(lambda1_11.dot(gr_1N).dot(lambda2_NN).dot(ga_1N)).real
 
         return T_e
 
@@ -420,6 +437,11 @@ class RecursiveGF(CoupledHamiltonian):
             sigma_L = None
             sigma_R = None
         # mat_list_ii, mat_list_ij, mat_list_ji
+
+        if self.parameters['gpu'] is True:
+            sigma_L = cp.asarray(sigma_L)
+            sigma_R = cp.asarray(sigma_R)
+
         return get_mat_lists(z, self.hs_list_ii, self.hs_list_ij,
                              self.hs_list_ji, sigma_L, sigma_R)
 

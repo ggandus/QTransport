@@ -5,10 +5,14 @@ from scipy import linalg as la
 from .tridiagonal import cutoff
 from transport.tools import dagger
 
+import cupy as cp
+
 def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
 
+    xp = cp.get_array_module(mat_list_ii[0][0])
+
     N = len(mat_list_ii)
-    mat_shapes = [mat.shape[0] for mat in mat_list_ii]
+#     mat_shapes = [mat.shape[0] for mat in mat_list_ii]
 
     # np.matrix alias
     m_qii = mat_list_ii
@@ -18,16 +22,18 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
     # Left connected green's function
     grL_qii = [None for _ in range(N)]
     # Initalize
-    grL_qii[0] = la.inv(m_qii[0], check_finite=False) # ([eS-H]_11-Sigma_L)^-1
+    grL_qii[0] = xp.linalg.inv(m_qii[0]) # ([eS-H]_11-Sigma_L)^-1
     # First row green's function
     gr_1i = grL_qii[0].copy()
 
+    assert xp == cp.get_array_module(gr_1i)
+    
     # Left connected recursion
     for q in range(1, N):
         # Left
-        grL_qii[q] = la.inv(m_qii[q] - m_qji[q - 1] @ grL_qii[q - 1] @ m_qij[q - 1], check_finite=False)
+        grL_qii[q] = xp.linalg.inv(m_qii[q] - xp.dot(xp.dot(m_qji[q - 1],grL_qii[q - 1]),m_qij[q - 1]))
         # 1st row
-        gr_1i = gr_1i @ m_qij[q - 1] @ grL_qii[q]
+        gr_1i = xp.dot(xp.dot(gr_1i,m_qij[q - 1]), grL_qii[q])
 
     # Only transport
     if not dos:
