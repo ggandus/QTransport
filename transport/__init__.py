@@ -1,5 +1,16 @@
 # from .calculators import TransportCalculator
 # __all__ = ['TransportCalculator']
+import numpy as np
+
+xp = np
+
+try:
+    import cupy as cp
+except:
+    pass
+else:
+    xp = cp
+
 
 #try:
 #    import _cppmodule as _cpp

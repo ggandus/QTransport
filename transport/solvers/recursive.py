@@ -5,11 +5,12 @@ from scipy import linalg as la
 from .tridiagonal import cutoff
 from transport.tools import dagger
 
-import cupy as cp
+# import cupy as cp
+from transport import xp
 
 def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
 
-    xp = cp.get_array_module(mat_list_ii[0][0])
+    # xp = cp.get_array_module(mat_list_ii[0][0])
 
     N = len(mat_list_ii)
 #     mat_shapes = [mat.shape[0] for mat in mat_list_ii]
@@ -26,8 +27,8 @@ def recursive_gf(mat_list_ii, mat_list_ij, mat_list_ji, s_in=None, dos=False):
     # First row green's function
     gr_1i = grL_qii[0].copy()
 
-    assert xp == cp.get_array_module(gr_1i)
-    
+    # assert xp == cp.get_array_module(gr_1i)
+
     # Left connected recursion
     for q in range(1, N):
         # Left
