@@ -304,21 +304,31 @@ class RecursiveGF(CoupledHamiltonian):
         if T_e is None:
             T_e = np.zeros(len(energies))
 
-        for e, energy in enumerate(energies):
+        if self.parameters['gpu'] is False:
+            for e, energy in enumerate(energies):
 
-            gr_1N = self.get_g1N(energy)
-            ga_1N = xp.conj(gr_1N.T)
-            lambda1_11 = self.selfenergies[0].get_lambda(energy)
-            lambda2_NN = self.selfenergies[1].get_lambda(energy)
+                gr_1N = self.get_g1N(energy)
+                ga_1N = xp.conj(gr_1N.T)
+                lambda1_11 = self.selfenergies[0].get_lambda(energy)
+                lambda2_NN = self.selfenergies[1].get_lambda(energy)
 
-            if self.parameters['gpu'] is True:
-                lambda1_11 = xp.asarray(lambda1_11)
-                lambda2_NN = xp.asarray(lambda2_NN)
+                if self.parameters['gpu'] is True:
+                    lambda1_11 = xp.asarray(lambda1_11)
+                    lambda2_NN = xp.asarray(lambda2_NN)
 
-            T_e[e] = xp.trace(lambda1_11.dot(gr_1N).dot(lambda2_NN).dot(ga_1N)).real
+                T_e[e] = xp.trace(lambda1_11.dot(gr_1N).dot(lambda2_NN).dot(ga_1N)).real
 
+        else:
+            import threading
+            from .tcalc import Tcalc
+
+            calc = Tcalc(self, energies, T_e)
+            bcs = threading.Thread(target=calc.bcs)
+            rec = threading.Thread(target=calc.rec)
+            bcs.start()
+            rec.start()
+            rec.join()
         return T_e
-
 
     def retarded(self, energy, trace=False, diag=False):
 
