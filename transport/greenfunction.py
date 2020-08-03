@@ -305,29 +305,32 @@ class RecursiveGF(CoupledHamiltonian):
             T_e = np.zeros(len(energies))
 
         if self.parameters['gpu'] is False:
+            # It is not convenient to spilt calculation of selfenergies
+            # and recursive greenfuncition on same CPU.
             for e, energy in enumerate(energies):
 
                 gr_1N = self.get_g1N(energy)
                 ga_1N = xp.conj(gr_1N.T)
                 lambda1_11 = self.selfenergies[0].get_lambda(energy)
                 lambda2_NN = self.selfenergies[1].get_lambda(energy)
-
-                if self.parameters['gpu'] is True:
-                    lambda1_11 = xp.asarray(lambda1_11)
-                    lambda2_NN = xp.asarray(lambda2_NN)
-
                 T_e[e] = xp.trace(lambda1_11.dot(gr_1N).dot(lambda2_NN).dot(ga_1N)).real
 
         else:
-            import threading
-            from .tcalc import Tcalc
 
+            import threading
+            # Threading calculator
+            from .tcalc import Tcalc
             calc = Tcalc(self, energies, T_e)
+            # Thread on CPU for computation of selfenergies
             bcs = threading.Thread(target=calc.bcs)
+            # Thread on CPU for offloading recursive greenfuncition on GPU
             rec = threading.Thread(target=calc.rec)
+            # bcs MUST start before rec (see locks)
             bcs.start()
             rec.start()
+            # Wait for GPU.
             rec.join()
+
         return T_e
 
     def retarded(self, energy, trace=False, diag=False):

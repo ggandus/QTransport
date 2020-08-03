@@ -177,7 +177,7 @@ class DensityCurrent(object):
             self.nlists[index].pop(ii)
             self.nlists[neighbor].pop(jj)
 
-    def display(self, J_aa, nlists, projection='2d',
+    def display(self, J_aa, nlists, projection='2d', plane='xy', scale=2,
                 normalize=True, vmin=None, vmax=None, clip=False):
 
         from mpl_toolkits.mplot3d import Axes3D
@@ -190,7 +190,6 @@ class DensityCurrent(object):
         W = normalize_weigths(W, normalize, vmin, vmax, clip)
         colormap = cm.YlOrBr
 
-        scale = 2
         fig = plt.figure(figsize=(atoms.cell[0,0]/scale,
                                   atoms.cell[1,1]/scale))
         if projection is '3d':
@@ -200,7 +199,10 @@ class DensityCurrent(object):
                       color=colormap(W))
         else:
             ax = fig.gca()
-            ax.quiver(X[:,0],X[:,1],
-                      U[:,0],U[:,1],
+            a = 'xyz'.index(plane[0])
+            b = 'xyz'.index(plane[1])
+            ax.quiver(X[:,a],X[:,b],
+                      U[:,a],U[:,b],
                       color=colormap(W))
+            ax.scatter(atoms.positions[:,a], atoms.positions[:,b])
         return ax
