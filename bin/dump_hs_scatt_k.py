@@ -2,6 +2,7 @@
 
 from gpaw import restart
 from gpaw.lcao.tools import get_lcao_hamiltonian, remove_pbc
+import numpy as np
 
 def get_h_and_s(calc, direction='x'):
     '''
