@@ -43,8 +43,6 @@ def plot_mol_wavefunctions(calc, atoms_i, ao_j, v_jj, e_j, spin=0):
     nao = calc.wfs.setups.nao
     nk = len(calc.wfs.kd.ibzk_kc)          #number of kpoints
 
-    psi_jg = [None for _ in range(len(ao_j))]
-
     for ii in ao_j:
         p1 = v_jj[:,ii]
         n1,cc = 0,0
@@ -66,48 +64,6 @@ def plot_mol_wavefunctions(calc, atoms_i, ao_j, v_jj, e_j, spin=0):
         print('Cube files generated')
         print('.....done!')
 
-# def get_density(calc, pdos):
-#     pass
-#         psi_jg[ii] = psi_g
-#
-#     return psi_jg
-#
-# def plot_mol_wavefunctions(calc, atoms_i, ao_j, v_jj, e_j, spin=0):
-#     psi_jg = get_wavefunctions(calc, atoms_i, ao_j, v_jj, e_j, spin)
-#     for ii in ao_j:
-#         psi_g = psi_jg[ii]
-        # write output
-
-
-# def plot_mol_electrondensity(calc, atoms_i, ao_j, v_jj, e_j, spin=0):
-#
-#     atoms = calc.atoms
-#     nao = calc.wfs.setups.nao
-#     nk = len(calc.wfs.kd.ibzk_kc)          #number of kpoints
-#
-#     for ii in ao_j:
-#         p1 = v_jj[:,ii]
-#         n1,cc = 0,0
-#         psi = np.zeros([nk,nao])  #initialize psi matrix
-#         for i in range(len(atoms)):
-#             if i in atoms_i:                   #if i is atom list
-#                 no = calc.wfs.setups[i].nao #get bfs on atom i
-#                 n2 = n1 + no                     #max wfs in psi
-#                 psi[0,n1:n2] = p1[cc:cc+no]      #add coefficients of molecular subspace to list
-#                 cc += no                         #set start for next loop
-#             n1 += calc.wfs.setups[i].nao    #min wfs in psi (for next step)
-#         psi = psi.reshape(1,-1)                  #reshape psi to get a vector
-#         psi_g = calc.wfs.gd.zeros(nk, dtype=calc.wfs.dtype) #initialize
-#         ss = psi_g.shape                         #get dimensions of psi_g
-#         psi_g = psi_g.reshape(1, -1)             #reshape psi_g to get a vector
-#         calc.wfs.basis_functions.lcao_to_grid(psi, psi_g, q=0)
-#         psi_g = psi_g.reshape(ss)                #resreo original shape
-#
-#         # write output
-#         write('orb_%1.4f_spin_%i.cube' %(e_j[ii].real,spin), atoms, data=np.real(psi_g[0])**2)
-#         print('Cube files generated')
-#         print('.....done!')
-
 def display_blocks(h_mm, lines, precision=0.1, **kwargs):
     '''Plot helper for subdiagonalized and ordered matrices.'''
     from matplotlib import pyplot as plt
@@ -118,3 +74,78 @@ def display_blocks(h_mm, lines, precision=0.1, **kwargs):
     plt.spy(h_mm,precision=precision)
     plt.hlines(lines-0.5,-0.5,size-0.5,colors='r')
     plt.vlines(lines-0.5,-0.5,size-0.5,colors='r')
+
+from ase import Atoms
+from gpaw import GPAW
+import PIL
+
+def single_atom_calculation(element, basis='szp(dzp)', xc='PBE'):
+    atoms = Atoms(element, [(0, 0, 0)])
+    atoms.set_cell([7,7,7])
+    atoms.center()
+    calc = GPAW(mode='lcao', txt=None, basis=basis, xc=xc, maxiter=1)
+    atoms.set_calculator(calc)
+    try:
+        atoms.get_potential_energy()
+    except:
+        pass
+    return calc
+
+
+def get_orbitals(calc, C_wM, indices=None):
+    '''Get orbitals w from M ao coefficients to G grid'''
+    if indices is None:
+        indices = range(C_wM.shape[0])
+    Ni = len(indices)
+    w_wG = calc.wfs.gd.zeros(Ni, dtype=calc.wfs.dtype)
+    calc.wfs.basis_functions.lcao_to_grid(C_wM, w_wG, q=-1)
+    return w_wG
+
+from scipy.ndimage import rotate
+
+def img_array_from_orbitals(mlab, w_wG, orb_i=None, rotation=None):
+    '''rotation=(angle, axes=1,0)'''
+    if rotation is None:
+        apply = lambda input, *args: input
+        angle, axes = None, None
+    else:
+        apply = lambda input, angle, axes: rotate(input, angle, axes)
+        angle, axes = rotation
+    indices = orb_i or range(w_wG.shape[0])
+    images = []
+    for i in indices:
+        psi = w_wG[i]
+        Phi = (psi - psi.mean()) / psi.std()
+        Phi = apply(Phi, angle, axes)
+        mlab.contour3d(Phi, contours=[-2], color=(1.,1.,1.))
+        mlab.contour3d(Phi, contours=[2], color=(0.,0.,0.))
+        img = mlab.screenshot()
+        # img = np.array(PIL.Image.fromarray(img).convert('L'))
+        images.append(img)
+        mlab.close()
+    return np.array(images)
+
+def img_array_from_coeff(mlab, calc, v_amm, atom_i=None, orb_i=None, rotation=None):
+    '''Get screenshot orbitals v_amm[a,:,w] for atoms(a) orbitals(w)'''
+    indices = atom_i or range(v_amm.shape[0])
+    images = []
+    # mlab.figure()
+    for a in indices:
+        c_mm = v_amm[a]
+        w_wG = get_orbitals(calc, c_mm.T)
+        images.append(img_array_from_orbitals(mlab, w_wG, orb_i, rotation))
+    return np.array(images)
+
+# raddi and colors of atoms
+from ase.data.colors import jmol_colors
+from ase.data import covalent_radii
+
+def plot_atoms(mlab, atoms):
+    '''Plot atoms by color and radii'''
+    positions = atoms.positions
+    for num in set(atoms.numbers):
+        color = tuple(jmol_colors[num])
+        radii = covalent_radii[num]
+        points = positions[atoms.numbers==num]
+        mlab.points3d(points[:,0],points[:,1],points[:,2],
+                      scale_factor=radii*0.5,color=color)
